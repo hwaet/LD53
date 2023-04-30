@@ -5,7 +5,7 @@ using UnityEngine;
 [ExecuteInEditMode]
 public class BlazonGenerator : MonoBehaviour
 {
-    BlazonParser bp;
+    BlazonTest bp;
     public string blazonDescription = "Azure, a bend Or";
     public Texture2D blazonTexture;
 
@@ -14,7 +14,7 @@ public class BlazonGenerator : MonoBehaviour
 	// Start is called before the first frame update
 	void OnValidate()
     {
-        bp = GetComponent<BlazonParser>();
+        bp = GetComponent<BlazonTest>();
 
 	}
 
@@ -27,8 +27,8 @@ public class BlazonGenerator : MonoBehaviour
     // Update is called once per frame
     void Generate()
     {
-        BlazonParser.Blazon newBlazon;
-		newBlazon = BlazonParser.Blazon.Parse(blazonDescription);
+        Blazon newBlazon;
+		newBlazon = Blazon.Parse(blazonDescription);
 		blazonTexture = newBlazon.GenerateTexture(256);
 
 		bannerRenderer.sharedMaterial.SetTexture("_Blazon_Texture", blazonTexture);
