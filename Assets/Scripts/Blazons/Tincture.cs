@@ -63,7 +63,7 @@ public class Tincture {
     };
     
     public static readonly Dictionary<string, Color> Stains = new Dictionary<string, Color> {
-        { "tenne", Tenne },
+        {"tenne", Tenne },
         {"sanguine", Sanguine },
         {"murrey", Murrey }
     };

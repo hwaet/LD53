@@ -1,13 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System;
 using UnityEngine;
 using static Field;
 using static BlazonDrawers;
 using static BlazonParserHelpers;
 using static Charge;
 using static Ordinary;
-
+using TMPro;
 
 public class Blazon {
     public enum Point {
@@ -30,9 +29,9 @@ public class Blazon {
     Field field;
     List<Element> elements;
 
-    public Blazon(Field field, List<Element> ordinaries) {
+    public Blazon(Field field, List<Element> elements) {
         this.field = field;
-        this.elements = ordinaries;
+        this.elements = elements;
     }
         
     public Blazon(Color tinc) {
@@ -52,6 +51,7 @@ public class Blazon {
        
     public Texture2D GenerateTexture(int size) {
         Texture2D tex = new Texture2D(size, size, TextureFormat.ARGB32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
 		switch (field.type) {
             case FieldTypes.Simple:
                 tex = Fill(tex, field.tinctures[0]);
@@ -223,10 +223,15 @@ public class Blazon {
         string ret = string.Empty;
         switch (field.type) {
             case FieldTypes.Simple:
-                ret = Tincture.Tinctures.FirstOrDefault(x => x.Value == field.tinctures[0]).Key +", ";
+                ret = Tincture.Tinctures.FirstOrDefault(x => x.Value == field.tinctures[0]).Key;
                 break;
             case FieldTypes.Varied:
                 ret = field.variation.ToString();
+
+                if(field.variation == Variation.Bendy && field.sinister) {
+                    ret += " sinister";
+                }
+
                 if(field.count > 0) {
                     ret += " of " + Numbers.FirstOrDefault(x => x.Value == field.count).Key;
                 }
@@ -241,6 +246,10 @@ public class Blazon {
             case FieldTypes.Divided:
                 ret = "Party per";
                 ret += " " + Divisions.FirstOrDefault(x => x.Value == field.divison).Key;
+                if(field.divison == Division.Bend && field.sinister) {
+                    ret += " sinister";
+                }
+
                 for (int i = 0; i < field.tinctures.Length; i++) {
                     if (i == field.tinctures.Length - 1)
                         ret += " and " + Tincture.Tinctures.FirstOrDefault(x => x.Value == field.tinctures[i]).Key;
@@ -254,6 +263,174 @@ public class Blazon {
             ret += ", " + elem.ToBlazonDescription();
         }
         return ret;
+    }
+
+    public static Blazon RandomBlazon(bool complexfields, bool ruleOfTincture, bool ordinary, int charges) {
+        Field field = null;
+        List<Color> colours = new List<Color>();
+        List<Color> metals = new List<Color>();
+
+        HashSet<Color> used = new HashSet<Color>();
+
+        if (ruleOfTincture) {
+            colours = new List<Color>(Tincture.Colours.Values);
+            metals = new List<Color>(Tincture.Metals.Values);
+        }
+        else {
+            colours = new List<Color>(Tincture.Tinctures.Values);
+        }
+
+        if (!complexfields) {
+            var dex = Random.Range(0, colours.Count);
+            var tincture = colours[dex];
+            colours.RemoveAt(dex);
+            field = new Field(tincture);
+        }
+        else {
+            float fate = Random.Range(0f, 1f);
+            if(fate < .2f) {
+                field = new Field(colours[Random.Range(0, colours.Count)]);
+            }
+            else if(fate < .6f) {
+                //varied field 
+                var variation = Variations.Values.ElementAt(Random.Range(0, Variations.Values.Count));
+                List<Color> tinctures = new List<Color>();
+                var dex = Random.Range(0, colours.Count);
+                tinctures.Add(colours[dex]);
+                colours.RemoveAt(dex);
+                if (ruleOfTincture) {
+                    dex = Random.Range(0, metals.Count);
+                    tinctures.Add(metals[dex]);
+                    metals.RemoveAt(dex);
+                }
+                else {
+                    dex = Random.Range(0, colours.Count);
+                    tinctures.Add(colours[dex]);
+                    colours.RemoveAt(dex);
+                }
+                int count;
+                if (Random.value > .65) {
+                    count = Numbers.Values.ElementAt(Random.Range(0, Numbers.Values.Count));
+                }
+                else {
+                    count = 4;
+                }
+                field = new Field(variation, tinctures.ToArray(), Random.value > .5, count);
+                //need the type of variation and 2 tinctures
+            }
+            else {
+                //need the division type and 2 (possibly 3) tinctures
+                var division = Divisions.Values.ElementAt(Random.Range(0, Divisions.Values.Count));
+                List<Color> tinctures = new List<Color>();
+
+                var dex = Random.Range(0, colours.Count);
+                tinctures.Add(colours[dex]);
+                colours.RemoveAt(dex);
+
+                if(ruleOfTincture) {
+                    dex = Random.Range(0, metals.Count);
+                    tinctures.Add(metals[dex]);
+                    metals.RemoveAt(dex);
+                }
+                else {
+                    dex = Random.Range(0, colours.Count);
+                    tinctures.Add(colours[dex]);
+                    colours.RemoveAt(dex);
+                }
+
+                if(division == Division.Pall) {
+                    dex = Random.Range(0, colours.Count);
+                    tinctures.Add(colours[dex]);
+                    colours.RemoveAt(dex);
+                    field = new Field(division, tinctures.ToArray(), false);
+                }
+                else {
+                    field = new Field(division, tinctures.ToArray(), Random.value > .5);
+                }
+            }
+        }
+
+        if (ruleOfTincture) {
+            colours = new List<Color>(Tincture.Colours.Values);
+            metals = new List<Color>(Tincture.Metals.Values);
+        }
+        else {
+            colours = new List<Color>(Tincture.Tinctures.Values);
+        }
+
+
+
+        List<Element> elements = new List<Element>();
+
+        if (ordinary) {
+            var ordinaryType = OrdinaryShapes.Values.ElementAt(Random.Range(0, OrdinaryShapes.Values.Count));
+            Color ordinaryTincture;
+            if (ruleOfTincture) {
+                if (Random.value > .5f) {
+                    ordinaryTincture = metals[Random.Range(0, metals.Count)];
+                    metals.Remove(ordinaryTincture);
+                }
+                else {
+                    ordinaryTincture = colours[Random.Range(0, colours.Count)];
+                    colours.Remove(ordinaryTincture);
+                }
+            }
+            else {
+                ordinaryTincture = colours[Random.Range(0, colours.Count)];
+                colours.Remove(ordinaryTincture);
+            }
+
+            if (ordinaryType == OrdinaryShape.Bend) {
+                elements.Add(new Ordinary(ordinaryType, ordinaryTincture, Random.value > .5f));
+            }
+            else {
+                elements.Add(new Ordinary(ordinaryType, ordinaryTincture, false));
+            }
+        }
+
+        for(int i = 0; i < charges; i++) {
+            Color tincture;
+            if (ruleOfTincture) {
+                if(metals.Count == 0) {
+                    metals = new List<Color>(Tincture.Metals.Values);
+                }
+                if(colours.Count == 0) {
+                    colours = new List<Color>(Tincture.Colours.Values);
+                }
+                if(Random.value > .8f) {
+                    tincture = metals[Random.Range(0, metals.Count)];
+                    metals.Remove(tincture);
+                }
+                else {
+                    tincture = colours[Random.Range(0, colours.Count)];
+                    colours.Remove(tincture);
+                }
+            }
+            else {
+                if(colours.Count == 0) {
+                    colours = new List<Color>(Tincture.Tinctures.Values);
+                }
+                tincture = colours[Random.Range(0, colours.Count)];
+                colours.Remove(tincture);
+            }
+
+            var fate = Random.Range(0f, 1f);
+            var shape = ChargeShapes.Values.ElementAt(Random.Range(0, ChargeShapes.Values.Count));
+            if(fate < .4f) {
+                elements.Add(new Charge(shape, tincture));
+            }
+            else if( fate < .7f) {
+                var point = Points.Values.ElementAt(Random.Range(0, Points.Values.Count));
+                elements.Add(new Charge(shape, tincture, point));
+            }
+            else {
+                var count = Random.Range(2, 9);
+                elements.Add(new Charge(shape, tincture, count));
+            }
+        }
+
+        return new Blazon(field, elements);
+
     }
 }
 

@@ -2,6 +2,7 @@ using Mono.Cecil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem.Switch;
 using UnityEngine.UIElements;
@@ -284,11 +285,14 @@ public static class BlazonDrawers  {
                 return field;
 
             case OrdinaryShape.Chevron:
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(0, field.height / 4), tincture);
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(field.width - 1, field.height / 4), tincture);
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(0, field.height / 4 - field.height / 5), tincture);
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(field.width - 1, field.height / 4 - field.height / 5), tincture);
-                field = FloodFill(field, new Vector2Int(field.width / 2, field.height * 3 / 4 - 1), tincture, FloodFillMode.UntilTargetColor);
+                Color[,] stamp = field.GetStampTemplate();
+                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(0, field.height / 4), tincture);
+                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(field.width - 1, field.height / 4), tincture);
+                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(0, field.height / 4 - field.height / 5), tincture);
+                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(field.width - 1, field.height / 4 - field.height / 5), tincture);
+                stamp = FloodFill(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4 - 1), tincture, FloodFillMode.UntilTargetColor);
+
+                field = StampToTexture(field, stamp);
                 return field;
 
             case OrdinaryShape.Pall:
@@ -337,12 +341,18 @@ public static class BlazonDrawers  {
                 field = DrawBillet(field, outerRect, charge.tincture);
                 return field;
             case ChargeShape.Annulet:
-                RectInt innerRect = outerRect.ConcentricRectInt(outerRect.width * 3 / 4);
+                RectInt innerRect = outerRect.ConcentricRectInt(outerRect.width / 4);
                 field = DrawAnnulet(field, outerRect, innerRect, charge.tincture);
                 return field;
             case ChargeShape.Mascle:
-                RectInt innerRect2 = outerRect.ConcentricRectInt(outerRect.width * 3 / 4);
+                RectInt innerRect2 = outerRect.ConcentricRectInt(outerRect.width / 4);
                 field = DrawMascle(field, outerRect, innerRect2, charge.tincture);
+                return field;
+            case ChargeShape.Rustre:
+                field = DrawRustre(field, outerRect, charge.tincture);
+                return field;
+            case ChargeShape.Mullet:
+                field = DrawMullet(field, outerRect, charge.tincture, 5);
                 return field;
             default:
                 Debug.LogFormat("Haven't implemented {0} yet", charge.shape);
@@ -382,6 +392,16 @@ public static class BlazonDrawers  {
                 foreach (RectInt place in placements) {
                     RectInt innerRect2 = place.ConcentricRectInt(place.width / 4);
                     field = DrawMascle(field, place, innerRect2, charge.tincture);
+                }
+                return field;
+            case ChargeShape.Rustre:
+                foreach (RectInt place in placements) {
+                    field = DrawRustre(field, place, charge.tincture);
+                }
+                return field;
+            case ChargeShape.Mullet:
+                foreach (RectInt place in placements) {
+                    field = DrawMullet(field, place, charge.tincture, 5);
                 }
                 return field;
             default:
@@ -509,6 +529,20 @@ public static class BlazonDrawers  {
         return field;
     }
 
+    public static Texture2D CutToStamp(Texture2D field, Color[,] stamp) {
+        if (field.width != stamp.GetLength(0) || field.height != stamp.GetLength(1)) {
+            throw new ArgumentException("Stamp and field must be the same size");
+        }
+        for (int x = 0; x < field.width; x++) {
+            for (int y = 0; y < field.height; y++) {
+                if (stamp[x, y].a == 0) {
+                    field.SetPixel(x, y, Color.clear);
+                }
+            }
+        }
+        return field;
+    }
+
     public static Texture2D DrawRect(Texture2D field, RectInt rect, Color color) {
         for (int x = rect.x; x < rect.x + rect.width; x++) {
             for (int y = rect.y; y < rect.y + rect.height; y++) {
@@ -530,25 +564,21 @@ public static class BlazonDrawers  {
     public static Texture2D DrawBillet(Texture2D field, RectInt rect, Color color) {
         rect.x += rect.width / 4;
         rect.width = rect.width / 2;
+        rect.y -= rect.height;
         return DrawRect(field, rect, color);
     }
 
     public static Color[,] DrawBillet(Color[,] field, RectInt rect, Color color) {
         rect.x += rect.width / 4;
         rect.width = rect.width / 2;
+        rect.y -= rect.height;
         return DrawRect(field, rect, color);
     }
 
     public static Texture2D DrawLozenge(Texture2D field, RectInt rect, Color color) {
-        Vector2Int left = new Vector2Int(rect.x, rect.y - rect.height / 2);
-        Vector2Int right = new Vector2Int(rect.x + rect.width, rect.y - rect.height / 2);
-        Vector2Int top = new Vector2Int(rect.x + rect.width / 2, rect.y);
-        Vector2Int bottom = new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height);
-        field = DrawLineSegment(field, left, top, color);
-        field = DrawLineSegment(field, top, right, color);
-        field = DrawLineSegment(field, right, bottom, color);
-        field = DrawLineSegment(field, bottom, left, color);
-        field = FloodFill(field, new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height / 2), color, FloodFillMode.UntilTargetColor);
+        Color[,] stamp = field.GetColorArray();
+        stamp = DrawLozenge(stamp, rect, color);
+        field = StampToTexture(field, stamp);
         return field;
     }
 
@@ -571,10 +601,59 @@ public static class BlazonDrawers  {
         return DrawLozenge(field, rect, color);
     }
 
+    public static Color[,] DrawFusil(Color[,] field, RectInt rect, Color color) {
+        rect.x += rect.width / 4;
+        rect.width = rect.width / 2;
+        return DrawLozenge(field, rect, color);
+    }
+
     public static Texture2D DrawMascle(Texture2D field, RectInt outerRect, RectInt innerRect, Color color) {
         Color[,] stamp = field.GetStampTemplate();
         stamp = DrawLozenge(stamp, outerRect, color);
         stamp = DrawLozenge(stamp, innerRect, Color.clear);
+        return StampToTexture(field, stamp);
+    }
+
+    public static Texture2D DrawRustre(Texture2D field, RectInt outerRect, Color color) {
+        Color[,] stamp = field.GetStampTemplate();
+        stamp = DrawFusil(stamp, outerRect, color);
+        stamp = DrawCircle(stamp, new Vector2Int(outerRect.x + outerRect.width / 4,
+                                                 outerRect.y + outerRect.height / 4),
+                                                 outerRect.width / 4, Color.clear);
+        return StampToTexture(field, stamp);
+    }
+
+    public static Texture2D DrawMullet(Texture2D field, RectInt outerRect, Color color, int points=5) {
+        Color[,] stamp = field.GetStampTemplate();
+
+        Vector2Int rectCenter = new Vector2Int(outerRect.x + outerRect.width / 2, 
+                                               outerRect.y - outerRect.height / 2);
+
+        int outerRadius = outerRect.width / 2;
+        int innerRadius = outerRadius * 3 / 8;
+        int angle = 360 / points / 2;
+        bool innerPoint = true;
+
+        Vector2Int lastPoint = rectCenter + new Vector2Int(0, outerRadius);
+        Vector2Int currPoint;
+        for(int i = 1; i < points * 2; i++) {
+            if (innerPoint) {
+                currPoint = rectCenter + new Vector2Int((int)(innerRadius * Mathf.Sin((angle * i) * Mathf.Deg2Rad)),
+                                                        (int)(innerRadius * Mathf.Cos((angle * i) * Mathf.Deg2Rad)));
+                stamp = DrawLineSegment(stamp, lastPoint, currPoint, color);
+                lastPoint = currPoint;
+                innerPoint = false;
+            }
+            else {
+                currPoint = rectCenter + new Vector2Int((int)(outerRadius * Mathf.Sin((angle * i) * Mathf.Deg2Rad)),
+                                                        (int)(outerRadius * Mathf.Cos((angle * i) * Mathf.Deg2Rad)));
+                stamp = DrawLineSegment(stamp, lastPoint, currPoint, color);
+                lastPoint = currPoint;
+                innerPoint = true;
+            }
+        }
+        stamp = DrawLineSegment(stamp, lastPoint, rectCenter + new Vector2Int(0, outerRadius), color);
+        stamp = FloodFill(stamp, rectCenter, color, FloodFillMode.UntilTargetColor);
         return StampToTexture(field, stamp);
     }
 

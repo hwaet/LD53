@@ -23,6 +23,16 @@ public static class ExtensionMethods {
         return ret;
     }
 
+    public static Color[,] GetColorArray(this Texture2D tex) {
+        Color[,] ret = new Color[tex.width, tex.height];
+        for(int x = 0; x < tex.width; x++) {
+            for(int y = 0; y < tex.height; y++) {
+                ret[x, y] = tex.GetPixel(x, y);
+            }
+        }
+        return ret;
+    }
+
     public static float MatchPercentage(this Texture2D tex, Texture2D other) {
         float total = 0f;
 
@@ -49,5 +59,4 @@ public static class ExtensionMethods {
     public static RectInt ConcentricRectInt (this RectInt rect, int padding) {
         return new RectInt(rect.x + padding, rect.y - padding, rect.width - padding * 2, rect.height - padding * 2);
     }
-
 }

@@ -22,7 +22,11 @@ public partial class BlazonTest : MonoBehaviour {
     string parseError = string.Empty;
 
     private Texture2D testTexture = null;
+    public Texture2D shieldTemplate;
     private Blazon testBlazon;
+
+    private bool complexFields, ruleOfTincture, ordinary;
+    private int numberOfElements = 1;
 
     private void OnGUI() {
         GUILayout.BeginArea(new Rect(0, 0, Screen.width, Screen.height));
@@ -43,7 +47,11 @@ public partial class BlazonTest : MonoBehaviour {
 
         if (GUILayout.Button("Generate")) {
             testTexture = testBlazon.GenerateTexture(256);
-            Debug.Log("Generating:" + testBlazon.ToBlazonDescription());
+            Debug.Log("Creating:" + testBlazon.ToBlazonDescription());
+
+            //Color[,] mask = shieldTemplate.GetColorArray();
+            //testTexture = CutToStamp(testTexture, mask);
+
         }
 
         GUI.enabled = true;
@@ -51,13 +59,40 @@ public partial class BlazonTest : MonoBehaviour {
         GUILayout.EndHorizontal();
 
         GUILayout.Label(parseError);
-
+        GUILayout.BeginHorizontal();
 
         GUILayout.Box(testTexture);
+
+        GUILayout.BeginVertical();
+        GUILayout.Label("Blazon Randomizer:");
+        complexFields = GUILayout.Toggle(complexFields, "Complex Fields");
+        ruleOfTincture = GUILayout.Toggle(ruleOfTincture, "Rule of Tincture");
+        ordinary = GUILayout.Toggle(ordinary, "Add Ordinary");
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Number of Charges:");
+        GUI.enabled = false;
+        GUILayout.TextField(numberOfElements.ToString());
+        GUI.enabled = true;
+        numberOfElements = (int)GUILayout.HorizontalSlider(numberOfElements, 0, 3);
+        GUILayout.EndHorizontal();
+        
+        if(GUILayout.Button("Generate Random Blazon")) {
+            testBlazon = Blazon.RandomBlazon(complexFields, ruleOfTincture, ordinary, numberOfElements);
+            blazonPrompt = testBlazon.ToBlazonDescription();
+            testTexture = testBlazon.GenerateTexture(256);
+        }
+
+
+        GUILayout.EndVertical();
+
+
+        GUILayout.EndHorizontal();
 
         GUILayout.EndVertical();
         GUILayout.EndArea();
     }
+
+
 
     private Texture2D GenerationExperiments() {
         Texture2D tex = new Texture2D(256, 256);
