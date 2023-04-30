@@ -19,6 +19,7 @@ public class Paintbrush : MonoBehaviour
 	Texture2D whiteMap;
 	public RenderTexture renderTex;
 	public RawImage rawImage;
+	public CanvasGroup canvasGroup;
 
 	[Header("debug")]
 	public Vector2 screenPos;
@@ -26,21 +27,14 @@ public class Paintbrush : MonoBehaviour
 
 	void Start()
 	{
-		CreateClearTexture();// clear white texture to draw on
+		ResetRenderTexture();// clear white texture to draw on
 	}
 
 	private void OnValidate()
 	{
 		rawImage = RenderTexturePanel.GetComponent<RawImage>();
 		renderTex = (RenderTexture) rawImage.texture;
-
-		//Color[] texturePixels = brushTexture.GetPixels();
-		//for (int i = 0; i < texturePixels.Length; i++)
-		//{
-		//	texturePixels[i] = texturePixels[i] * brushColor;
-		//}
-		//brushTexture.SetPixels(texturePixels);
-		//brushTexture.Apply();
+		canvasGroup = GetComponent<CanvasGroup>();
 	}
 
 	void Update()
@@ -80,7 +74,7 @@ public class Paintbrush : MonoBehaviour
 
 		// draw brushtexture
 		Rect newDrawing = new Rect(posX, posY, brushTexture.width*brushSize, brushTexture.height * brushSize);
-		Rect sourceRect = new Rect(0, 0, brushTexture.width, brushTexture.height);
+		Rect sourceRect = new Rect(0, 0, 1, 1);
 		Graphics.DrawTexture(newDrawing, brushTexture, sourceRect, 0, 0, 0, 0, brushColor);
 
 		GL.PopMatrix();
@@ -98,7 +92,7 @@ public class Paintbrush : MonoBehaviour
 	}
 
 	[ContextMenu("Clear")]
-	void CreateClearTexture()
+	public void ResetRenderTexture()
 	{
 		//whiteMap = new Texture2D(1, 1);
 		//whiteMap.SetPixel(0, 0, Color.white);
@@ -109,5 +103,10 @@ public class Paintbrush : MonoBehaviour
 	public void setColor (Color newColor)
 	{
 		brushColor = newColor; 
+	}
+
+	public void SetBrushSize(float size)
+	{
+		brushSize = size;
 	}
 }

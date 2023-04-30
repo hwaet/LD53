@@ -146,8 +146,8 @@ public class BlazonParser : MonoBehaviour {
         }
        
         public Texture2D GenerateTexture(int size) {
-            Texture2D tex = new Texture2D(size, size);
-            switch(field.type) {
+            Texture2D tex = new Texture2D(size, size, TextureFormat.ARGB32, false);
+			switch (field.type) {
                 case FieldTypes.Simple:
                     tex = Fill(tex, field.tinctures[0]);
                     break;

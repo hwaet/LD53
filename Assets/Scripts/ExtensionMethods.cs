@@ -16,12 +16,16 @@ public static class ExtensionMethods {
         float total = 0f;
 
         if(tex.width != other.width || tex.height != other.height) {
+            Debug.Log("Texture Dimension Mistmatch");
             return 0f;
         }
 
         for(int x = 0; x < tex.width; x++) {
             for(int y = 0; y < tex.height; y++) {
-                if(tex.GetPixel(x, y) == other.GetPixel(x, y)) {
+                Color a = tex.GetPixel(x, y);
+                Color b = other.GetPixel(x, y);
+
+				if (tex.GetPixel(x, y) == other.GetPixel(x, y)) {
                     total++;
                 }
             }
