@@ -20,9 +20,9 @@ public class EvaluateGui : MonoBehaviour
 	}
 
     // Update is called once per frame
-    void Update()
+    void Start()
     {
-        
+        OnValidate();
     }
 
     public void Evaluate(Texture2D src, Texture2D target, string inText)
