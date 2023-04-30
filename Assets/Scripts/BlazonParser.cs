@@ -69,19 +69,49 @@ public class BlazonParser : MonoBehaviour {
         "party"," parted", "per"
     };
 
-    public enum Ordinary {
+    public static readonly Dictionary<string, int> NumberWords = new Dictionary<string, int>() {
+        {"one", 1 },
+        {"two", 2},
+        {"three", 3},
+        {"four", 4},
+        {"five", 5 },
+        {"six", 6 },
+        {"seven", 7 },
+        {"eight", 8 },
+        {"nine", 9 },
+        {"ten", 10 },
+        {"eleven", 11 },
+        {"twelve", 12 },
+        {"thirteen", 13 },
+        {"fourteen", 14 },
+        {"fifteen", 15 }
+    };
+
+    public enum OrdinaryShape {
         Cross, // cross
         Pale, // vertical line
         Fess, // horizontal line
         Bend, // diagonal line (top-left to bottom-right)
-        BendSinister, // diagonal line (top-right to bottom-left)
         Chevron, // chevron pointing up
         Saltire, // diagonal cross
-        Cheif, // horizontal line at top
+        Chief, // horizontal line at top
         Bordure, // border
         Pile, // triangle pointing down
         Pall, // Y shape
     }
+
+    public static readonly Dictionary<string, OrdinaryShape> OrdinaryShapes = new Dictionary<string, OrdinaryShape>() {
+        {"cross", OrdinaryShape.Cross },
+        {"pale", OrdinaryShape.Pale },
+        {"fess", OrdinaryShape.Fess },
+        {"bend", OrdinaryShape.Bend },
+        {"chevron", OrdinaryShape.Chevron },
+        {"saltire", OrdinaryShape.Saltire },
+        {"chief", OrdinaryShape.Chief },
+        {"bordure", OrdinaryShape.Bordure },
+        {"pile", OrdinaryShape.Pile },
+        {"pall", OrdinaryShape.Pall }
+    };
 
     public class BlazonError: System.Exception {
         public BlazonError(string message) : base(message) { }
@@ -102,8 +132,8 @@ public class BlazonParser : MonoBehaviour {
             ordinaries  = new List<Ordinary>();
         }
 
-        public Blazon(Variation variation, Color[] tinctures, bool sinister=false) {
-            field = new Field(variation, tinctures, sinister);
+        public Blazon(Variation variation, Color[] tinctures, bool sinister=false, int count=0) {
+            field = new Field(variation, tinctures, sinister, count);
             ordinaries = new List<Ordinary>();
         }
 
@@ -126,12 +156,36 @@ public class BlazonParser : MonoBehaviour {
                     break;
             }
 
+            foreach(Ordinary ordinary in ordinaries) {
+                tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister);
+            }
+
             tex.Apply();
             return tex;
         }
 
-        public void AddOrdinary(string ordinary) {
-            //No op for now.
+        public void AddOrdinary(string ordinaryDescription) {
+            string[] ordinaryElements = ordinaryDescription.Split(" ");
+            bool sinister = false;
+            Color tincture = Color.clear;
+            Ordinary ordinary = null;
+            foreach(string element in ordinaryElements) {
+                if (OrdinaryShapes.ContainsKey(element)) {
+                    ordinary = new Ordinary(OrdinaryShapes[element]);
+                }
+                if(element == "sinister") {
+                    sinister = true;
+                }
+                if(Tincture.Tinctures.ContainsKey(element)) {
+                    tincture = Tincture.Tinctures[element];
+                }
+            }
+            if(ordinary == null || tincture == Color.clear) {
+                throw new BlazonError("Trouble Parsing Ordinary: "+ordinaryDescription);
+            }
+            ordinary.tincture = tincture;
+            ordinary.sinister = sinister;
+            ordinaries.Add(ordinary);
         }
 
         public static Blazon Parse(string blazonDescription) {
@@ -141,6 +195,7 @@ public class BlazonParser : MonoBehaviour {
             string[] blazonElements = blazonDescription.ToLower().Split(',');
             string[] field = blazonElements[0].Split(' ');
             bool sinister = false;
+            string count = string.Empty;
             Blazon blazon;
 
             //If it just starts with a color then its a simple field
@@ -158,12 +213,24 @@ public class BlazonParser : MonoBehaviour {
                     if (field[i] == "sinister") {
                         sinister = true;
                     }
+                    if (field[i] == "of") {
+                        if(i+1 < field.Length && NumberWords.ContainsKey(field[i+1])) {
+                            count = field[i + 1];
+                        }
+                        else {
+                            throw new BlazonError("Varation looks like it's specifying a number but the number doens't make sense.");
+                        }
+                    }
                 }
                 if(tinctures.Count < 2) {
                     throw new BlazonError("A Variation must be composed of at least 2 tinctures.");
                 }
-
-                blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister);
+                if(count != string.Empty) {
+                    blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister, NumberWords[count]);
+                }
+                else {
+                    blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister);
+                }   
             }
             //If it starts with Pary, Parted, or Per then its a Divided field
             else if (DivisionCues.Contains(field[0])){
@@ -193,9 +260,11 @@ public class BlazonParser : MonoBehaviour {
                 throw new BlazonError("Blazon does not have a reconizable field descriptor.");
             }
 
-            // Once we've done the field parse the rest of the blazon elements as ordinaries... TODO
-            for(int i = 1; i <blazonElements.Length; i++) {
-                blazon.AddOrdinary(blazonElements[i]);
+            if (blazonElements[1].Length > 0) {
+                // Once we've done the field parse the rest of the blazon elements as ordinaries... TODO
+                for (int i = 1; i < blazonElements.Length; i++) {
+                    blazon.AddOrdinary(blazonElements[i]);
+                }
             }
             return blazon;
         }
@@ -227,6 +296,10 @@ public class BlazonParser : MonoBehaviour {
                     }
                     break;
             }
+
+            foreach(Ordinary ordinary in ordinaries) {
+                ret += ", " + ordinary.ToBlazonDescription();
+            }
             return ret;
         }
     }
@@ -237,17 +310,20 @@ public class BlazonParser : MonoBehaviour {
         public Division divison;
         public Color[] tinctures;
         public bool sinister;
+        public int count;
 
         public Field(Color tincture) {
             type = FieldTypes.Simple;
             tinctures = new Color[] { tincture };
+            count = 0;
         }
 
-        public Field(Variation variation, Color[] tinctures, bool sinister) {
+        public Field(Variation variation, Color[] tinctures, bool sinister, int count) {
             type = FieldTypes.Varied;
             this.variation = variation;
             this.tinctures = tinctures;
             this.sinister = sinister;
+            this.count = count;
         }
 
         public Field(Division divsion, Color[] tinctures, bool sinister) {
@@ -255,6 +331,34 @@ public class BlazonParser : MonoBehaviour {
             this.divison = divsion;
             this.tinctures = tinctures;
             this.sinister = sinister;
+            count = 0;
+        }
+    }
+
+    public class Ordinary {
+        public OrdinaryShape shape;
+        public Color tincture;
+        public bool sinister;
+
+        public Ordinary(OrdinaryShape shape) {
+            this.shape = shape;
+            tincture = Color.clear;
+            sinister = false;
+        }
+
+        public Ordinary(OrdinaryShape shape, Color tincture, bool sinister=false) {
+            this.shape = shape;
+            this.tincture = tincture;
+            this.sinister = sinister;
+        }
+
+       public string ToBlazonDescription() {
+            string ret = "a " + shape.ToString();
+            if (sinister) {
+                ret += " sinister";
+            }
+            ret += " " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+            return ret;
         }
     }
 
@@ -309,10 +413,15 @@ public class BlazonParser : MonoBehaviour {
                 return field;
             case Division.Saltire: 
                 field = Fill(field, tinctures[0]);
-                field = DrawLineSegment(field, new Vector2Int(0, 0), new Vector2Int(field.width, field.height), tinctures[1]);
-                field = DrawLineSegment(field, new Vector2Int(field.width, 0), new Vector2Int(0, field.height), tinctures[1]);
+                Debug.Log("Filled");
+                field = DrawLineSegment(field, new Vector2Int(0, 0), new Vector2Int(field.width-1, field.height-1), tinctures[1]);
+                Debug.Log("DrawLineSegment lower left to upper right");
+                field = DrawLineSegment(field, new Vector2Int(field.width-1, 0), new Vector2Int(0, field.height-1), tinctures[1]);
+                Debug.Log("Draw Line segment upper left to lower right");
                 field = FloodFill(field, new Vector2Int(0, field.height/2), tinctures[1], FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(field.width, field.height / 2), tinctures[1], FloodFillMode.UntilTargetColor);
+                Debug.Log("Flood Fill left");
+                field = FloodFill(field, new Vector2Int(field.width-1, field.height / 2), tinctures[1], FloodFillMode.UntilTargetColor);
+                Debug.Log("Flood fill right");
                 return field;
             case Division.Pall: 
                 field = DrawLineSegment(field, new Vector2Int(0, field.height), new Vector2Int(field.width/2, field.height/3*2), tinctures[0]);
@@ -321,7 +430,7 @@ public class BlazonParser : MonoBehaviour {
 
                 field = FloodFill(field, new Vector2Int(field.width / 2, field.height), tinctures[0], FloodFillMode.UntilTargetColor);
                 field = FloodFill(field, new Vector2Int(0, 0), tinctures[1], FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(field.width, 0), tinctures[2], FloodFillMode.AllSeedColor);
+                field = FloodFill(field, new Vector2Int(field.width - 1, 0), tinctures[2], FloodFillMode.AllSeedColor);
                 return field;
             default: 
                 break;
@@ -466,6 +575,38 @@ public class BlazonParser : MonoBehaviour {
 
 
         }
+    }
+
+    public static Texture2D ApplyOrdinary(Texture2D field, OrdinaryShape shape, Color tincture, bool sinister = false) {
+        switch (shape) {
+            case OrdinaryShape.Chief:
+                field = DrawRect(field, new RectInt(0, field.height*2/3, field.width, field.height -1), tincture);
+                return field;
+            case OrdinaryShape.Fess:
+                field = DrawRect(field, new RectInt(0, field.height / 2 + field.height / 8, field.width, field.height / 4), tincture);
+                return field;
+            case OrdinaryShape.Pale:
+                field = DrawRect(field, new RectInt(field.width / 2 - field.width / 8, 0, field.width / 4, field.height), tincture);
+                return field;
+            case OrdinaryShape.Cross:
+                field = DrawRect(field, new RectInt(0, field.height/ 2 + field.height / 10, field.width, field.height / 5), tincture);
+                field = DrawRect(field, new RectInt(field.width / 2 - field.width / 10, 0, field.width / 5, field.height), tincture);
+                return field;
+            case OrdinaryShape.Bend:
+                if (sinister) {
+                    field = DrawLine(field, new Vector2Int(0, 0), new Vector2Int(1, 1), tincture, field.width / 5);
+                }
+                else {
+                    field = DrawLine(field, new Vector2Int(0, field.height), new Vector2Int(1, -1), tincture, field.width / 5);
+                }
+                return field;
+            default:
+                Debug.LogFormat("Haven't implemented {0} yet", shape);
+                return field;
+
+        }
+
+        return field;
     }
 
     private GUIStyle testTextureStyle = null;
@@ -627,40 +768,43 @@ public class BlazonParser : MonoBehaviour {
     }
 
     public static Texture2D FloodFill(Texture2D field, Vector2Int seed, Color color, FloodFillMode fillMode) {
-        Color seedColor = field.GetPixel(seed);
+        Color seedColor = field.GetPixel(seed.x, seed.y);
+        if(fillMode == FloodFillMode.AllSeedColor && seedColor == color) {
+            return field;
+        }
         Stack<Vector2Int> pixelStack = new Stack<Vector2Int>();
         pixelStack.Push(seed);
         while (pixelStack.Count > 0) {
             Vector2Int node = pixelStack.Pop();
-            field.SetPixel(node, color);
+            field.SetPixel(node.x, node.y, color);
 
             switch (fillMode) {
                 case FloodFillMode.AllSeedColor:
-                    if (node.x > 0 && field.GetPixel(node + Vector2Int.left) == seedColor) {
-                        pixelStack.Push(node + Vector2Int.left);
+                    if (node.x > 0 && field.GetPixel(node.x - 1, node.y) == seedColor) {
+                        pixelStack.Push(new Vector2Int(node.x - 1, node.y));
                     }
-                    if (node.x < field.width - 1 && field.GetPixel(node + Vector2Int.right) == seedColor) {
-                        pixelStack.Push(node + Vector2Int.right);
+                    if (node.x < field.width - 1 && field.GetPixel(node.x + 1, node.y) == seedColor) {
+                        pixelStack.Push(new Vector2Int(node.x+1, node.y));
                     }
-                    if (node.y > 0 && field.GetPixel(node + Vector2Int.down) == seedColor) {
-                        pixelStack.Push(node + Vector2Int.down);
+                    if (node.y > 0 && field.GetPixel(node.x, node.y-1) == seedColor) {
+                        pixelStack.Push(new Vector2Int(node.x, node.y-1));
                     }
-                    if (node.y < field.height - 1 && field.GetPixel(node + Vector2Int.up) == seedColor) {
-                        pixelStack.Push(node + Vector2Int.up);
+                    if (node.y < field.height - 1 && field.GetPixel(node.x, node.y+1) == seedColor) {
+                        pixelStack.Push(new Vector2Int(node.x, node.y+1));
                     }
                     break;
                 case FloodFillMode.UntilTargetColor:
-                    if (node.x > 0 && field.GetPixel(node + Vector2Int.left) != color) {
-                        pixelStack.Push(node + Vector2Int.left);
+                    if (node.x > 0 && field.GetPixel(node.x - 1, node.y) != color) {
+                        pixelStack.Push(new Vector2Int(node.x - 1, node.y));
                     }
-                    if (node.x < field.width - 1 && field.GetPixel(node + Vector2Int.right) != color) {
-                        pixelStack.Push(node + Vector2Int.right);
+                    if (node.x < field.width - 1 && field.GetPixel(node.x + 1, node.y) != color) {
+                        pixelStack.Push(new Vector2Int(node.x + 1, node.y));
                     }
-                    if (node.y > 0 && field.GetPixel(node + Vector2Int.down) != color) {
-                        pixelStack.Push(node + Vector2Int.down);
+                    if (node.y > 0 && field.GetPixel(node.x, node.y - 1) != color) {
+                        pixelStack.Push(new Vector2Int(node.x, node.y - 1));
                     }
-                    if (node.y < field.height - 1 && field.GetPixel(node + Vector2Int.up) != color) {
-                        pixelStack.Push(node + Vector2Int.up);
+                    if (node.y < field.height - 1 && field.GetPixel(node.x, node.y + 1) != color) {
+                        pixelStack.Push(new Vector2Int(node.x, node.y + 1));
                     }
                     break;
                 default:
