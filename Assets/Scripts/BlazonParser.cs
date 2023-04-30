@@ -6,6 +6,9 @@ using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 using System.Runtime.CompilerServices;
+using UnityEditor.Experimental.GraphView;
+using UnityEngine.UI;
+using UnityEngine.Rendering.Universal;
 
 public class BlazonParser : MonoBehaviour {
 
@@ -23,12 +26,12 @@ public class BlazonParser : MonoBehaviour {
         // https://en.wikipedia.org/wiki/Variation_of_the_field
         Barry, // horizontal bars even number of alternating colors first color is what starts
         Paly, // vertical bars
-        Bendy, // diagonal bars (top-left to bottom-right)
+        Bendy, // diagonal bars (outTop-outLeft to outBottom-outRight)
         Chevronny, // chevrons pointing up
 
         Chequy, // checkerboard
-        Lozengy, // diamond pattern (using squares)
-        Fusilly, // diamond pattern (using steeper diamonds)
+        Lozengy, // diamond pattern (using squares)          << NOT IMPLMENTED
+        Fusilly, // diamond pattern (using steeper diamonds) << NOT IMPLMENTED
 
         Gyronny // pie slices
     }
@@ -48,11 +51,11 @@ public class BlazonParser : MonoBehaviour {
         // https://en.wikipedia.org/wiki/Division_of_the_field
         Fess, // horizontal line
         Pale, // vertical line
-        Bend, // diagonal line (top-left to bottom-right)
+        Bend, // diagonal line (outTop-outLeft to outBottom-outRight)
         Chevron, // chevron pointing up
         Cross, // cross
         Saltire, // diagonal cross
-        Pall, // Y shape
+        Pall, // Y shape            
     }
 
     public static readonly Dictionary<string, Division> Divisions = new Dictionary<string, Division>() {
@@ -91,10 +94,10 @@ public class BlazonParser : MonoBehaviour {
         Cross, // cross
         Pale, // vertical line
         Fess, // horizontal line
-        Bend, // diagonal line (top-left to bottom-right)
+        Bend, // diagonal line (outTop-outLeft to outBottom-outRight)
         Chevron, // chevron pointing up
         Saltire, // diagonal cross
-        Chief, // horizontal line at top
+        Chief, // horizontal line at outTop
         Bordure, // border
         Pile, // triangle pointing down
         Pall, // Y shape
@@ -119,27 +122,27 @@ public class BlazonParser : MonoBehaviour {
 
     public class Blazon {
         Field field;
-        List<Ordinary> ordinaries;
+        List<Element> elements;
         //Charge[] charges; 
 
-        public Blazon(Field field, List<Ordinary> ordinaries) {
+        public Blazon(Field field, List<Element> ordinaries) {
             this.field = field;
-            this.ordinaries = ordinaries;
+            this.elements = ordinaries;
         }
         
         public Blazon(Color tinc) {
             field = new Field(tinc);
-            ordinaries  = new List<Ordinary>();
+            elements  = new List<Element>();
         }
 
         public Blazon(Variation variation, Color[] tinctures, bool sinister=false, int count=0) {
             field = new Field(variation, tinctures, sinister, count);
-            ordinaries = new List<Ordinary>();
+            elements = new List<Element>();
         }
 
         public Blazon(Division divsion, Color[] tinctures, bool sinister= false) {
             field = new Field(divsion, tinctures, sinister);
-            ordinaries = new List<Ordinary>();
+            elements = new List<Element>();
         }
        
         public Texture2D GenerateTexture(int size) {
@@ -149,43 +152,81 @@ public class BlazonParser : MonoBehaviour {
                     tex = Fill(tex, field.tinctures[0]);
                     break;
                 case FieldTypes.Varied:
-                    tex = ApplyVariation(tex, field.variation, field.tinctures, 4, field.sinister);
+                    if (field.count > 0) {
+                        tex = ApplyVariation(tex, field.variation, field.tinctures, field.count, field.sinister);
+                    }
+                    else {
+                        tex = ApplyVariation(tex, field.variation, field.tinctures, 4, field.sinister);
+                    }
                     break;
                 case FieldTypes.Divided:
                     tex = ApplyDivision(tex, field.divison, field.tinctures, field.sinister);
                     break;
             }
 
-            foreach(Ordinary ordinary in ordinaries) {
-                tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister);
+            foreach(Element elem in elements) {
+                if (elem is Ordinary ordinary) {
+                    tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister);
+                }
+                else if(elem is Charge charge) {
+                    tex = ApplyCharge(tex, charge);
+                }
             }
 
             tex.Apply();
             return tex;
         }
 
-        public void AddOrdinary(string ordinaryDescription) {
-            string[] ordinaryElements = ordinaryDescription.Split(" ");
-            bool sinister = false;
+        public void AddElement(string elementDescription) {
+            string[] elementProperties = elementDescription.Trim().Split(" ");
             Color tincture = Color.clear;
-            Ordinary ordinary = null;
-            foreach(string element in ordinaryElements) {
-                if (OrdinaryShapes.ContainsKey(element)) {
-                    ordinary = new Ordinary(OrdinaryShapes[element]);
+
+            
+            if (elementProperties[0] == "a" || elementProperties[0] == "an") {
+                Debug.Log("Hit the Single condition");
+                if (ChargeShapes.ContainsKey(elementProperties[1])) {
+                    Debug.Log("Hit the Charge condition");
+                    //we have a single charge 
+                    Charge charge = new Charge(ChargeShapes[elementProperties[1]], Tincture.Tinctures[elementProperties[2]]);
+                    elements.Add(charge);
                 }
-                if(element == "sinister") {
-                    sinister = true;
-                }
-                if(Tincture.Tinctures.ContainsKey(element)) {
-                    tincture = Tincture.Tinctures[element];
+                else if (OrdinaryShapes.ContainsKey(elementProperties[1])) {
+                    Debug.Log("Hit the Ordinary condition");
+                    //we have a single ordinary
+                    Ordinary ord = new Ordinary(OrdinaryShapes[elementProperties[1]]);
+                    if (elementProperties[2] == "sinister") {
+                        ord.sinister = true;
+                        ord.tincture = Tincture.Tinctures[elementProperties[3]];
+                    }
+                    else {
+                        ord.tincture = Tincture.Tinctures[elementProperties[2]];
+                    }
+                    elements.Add(ord);
                 }
             }
-            if(ordinary == null || tincture == Color.clear) {
-                throw new BlazonError("Trouble Parsing Ordinary: "+ordinaryDescription);
+            else if (elementProperties[0] == "in") {
+                Point point = PointWords[elementProperties[1]];
+                //elementProperties[2] should be "a" or "an"
+                ChargeShape shape = ChargeShapes[elementProperties[3]];
+                tincture = Tincture.Tinctures[elementProperties[4]];
+                Charge charge = new Charge(shape, tincture, point);
+                elements.Add(charge);
             }
-            ordinary.tincture = tincture;
-            ordinary.sinister = sinister;
-            ordinaries.Add(ordinary);
+            else if (NumberWords.ContainsKey(elementProperties[0])) {
+                int number = NumberWords[elementProperties[0]];
+                ChargeShape shape = ChargeShapes[elementProperties[1]];
+                tincture = Tincture.Tinctures[elementProperties[2]];
+                Charge charge = new Charge(shape, tincture, number);
+                elements.Add(charge);
+            }
+            else {
+                //We have a problem
+                throw new BlazonError("Blazon Element hit the fall through: " + elementProperties[0] + ", "+ elementDescription);
+            }
+            //}
+            //catch(KeyNotFoundException) {
+            //    throw new BlazonError("Blazon Element not recognized: " + elementDescription +" because of Key Not Found Exception");
+            //}
         }
 
         public static Blazon Parse(string blazonDescription) {
@@ -229,7 +270,7 @@ public class BlazonParser : MonoBehaviour {
                     blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister, NumberWords[count]);
                 }
                 else {
-                    blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister);
+                    blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister, -1);
                 }   
             }
             //If it starts with Pary, Parted, or Per then its a Divided field
@@ -261,9 +302,9 @@ public class BlazonParser : MonoBehaviour {
             }
 
             if (blazonElements[1].Length > 0) {
-                // Once we've done the field parse the rest of the blazon elements as ordinaries... TODO
+                // Once we've done the field parse the rest of the blazon elements as elements... TODO
                 for (int i = 1; i < blazonElements.Length; i++) {
-                    blazon.AddOrdinary(blazonElements[i]);
+                    blazon.AddElement(blazonElements[i]);
                 }
             }
             return blazon;
@@ -277,6 +318,10 @@ public class BlazonParser : MonoBehaviour {
                     break;
                 case FieldTypes.Varied:
                     ret = field.variation.ToString();
+                    if(field.count > 0) {
+                        ret += " of" + NumberWords.FirstOrDefault(x => x.Value == field.count).Key;
+                    }
+
                     for (int i =0; i < field.tinctures.Length; i++) {
                         if (i == field.tinctures.Length - 1)
                             ret += " and " + Tincture.Tinctures.FirstOrDefault(x => x.Value == field.tinctures[i]).Key;
@@ -297,8 +342,8 @@ public class BlazonParser : MonoBehaviour {
                     break;
             }
 
-            foreach(Ordinary ordinary in ordinaries) {
-                ret += ", " + ordinary.ToBlazonDescription();
+            foreach(Element elem in elements) {
+                ret += ", " + elem.ToBlazonDescription();
             }
             return ret;
         }
@@ -335,9 +380,14 @@ public class BlazonParser : MonoBehaviour {
         }
     }
 
-    public class Ordinary {
-        public OrdinaryShape shape;
+    public abstract class Element {
         public Color tincture;
+
+        public abstract string ToBlazonDescription();
+    }
+
+    public class Ordinary: Element {
+        public OrdinaryShape shape;
         public bool sinister;
 
         public Ordinary(OrdinaryShape shape) {
@@ -352,12 +402,139 @@ public class BlazonParser : MonoBehaviour {
             this.sinister = sinister;
         }
 
-       public string ToBlazonDescription() {
+       public override string ToBlazonDescription() {
             string ret = "a " + shape.ToString();
             if (sinister) {
                 ret += " sinister";
             }
             ret += " " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+            return ret;
+        }
+    }
+
+    public enum ChargeShape {
+        Roundel, //Circle
+        Lozenge, //Diamond
+        Fusil,   //Thin Diamond
+        Billet,  //Square (or rectangle)
+        Mascle,  // Square with a hole in the middle
+        Annulet, // Ring
+        Rustre,  // Square with a hole in the middle with rounded corners
+        Mullet,  // Star
+    }
+
+    public static readonly Dictionary<string, ChargeShape> ChargeShapes = new Dictionary<string, ChargeShape>() {
+        {"roundel", ChargeShape.Roundel},
+        {"lozenge", ChargeShape.Lozenge },
+        {"fusil", ChargeShape.Fusil },
+        {"billet", ChargeShape.Billet },
+        {"mascle", ChargeShape.Mascle },
+        {"annulet", ChargeShape.Annulet },
+        {"rustre", ChargeShape.Rustre },
+        {"mullet", ChargeShape.Mullet },
+
+        {"roundels", ChargeShape.Roundel},
+        {"lozenges", ChargeShape.Lozenge },
+        {"fusils", ChargeShape.Fusil },
+        {"billets", ChargeShape.Billet },
+        {"mascles", ChargeShape.Mascle },
+        {"annulets", ChargeShape.Annulet },
+        {"rustres", ChargeShape.Rustre },
+        {"mullets", ChargeShape.Mullet }
+    };
+
+    public enum Point {
+        Chief,
+        Dexter,
+        Sinister,
+        Base,
+        DexterChief,
+        MiddleChief,
+        SinisterChief,
+        HonourPoint,
+        FessPoint,
+        NombrilPoint,
+        DexterBase,
+        MiddleBase,
+        SinisterBase
+    }
+
+    public static readonly Dictionary<string, Point> PointWords = new Dictionary<string, Point>() {
+        { "chief", Point.Chief},
+        {"dexter", Point.Dexter },
+        {"sinister", Point.Sinister },
+        {"base", Point.Base },
+        {"dexter chief", Point.DexterChief },
+        {"middle chief", Point.MiddleChief },
+        {"sinister chief", Point.SinisterChief },
+        {"honour point", Point.HonourPoint },
+        {"fess point", Point.FessPoint },
+        {"nombril point", Point.NombrilPoint },
+        {"dexter base", Point.DexterBase },
+        {"middle base", Point.MiddleBase },
+        {"sinister base", Point.SinisterBase }
+    };
+
+    public enum ChargeType {
+        Single,
+        Multiple,
+        Positioned,
+        LaidOut
+    }
+
+    public class Charge: Element {
+        public ChargeType type;
+        public ChargeShape shape;
+        public Point point;
+        public OrdinaryShape layout;
+        public int count;
+
+        public Charge(ChargeShape shape, Color tincture) {
+            type = ChargeType.Single;
+            point = Point.FessPoint;
+            this.shape = shape;
+            this.tincture = tincture;
+        }
+
+        public Charge(ChargeShape shape, Color tincture, int count) {
+            type = ChargeType.Multiple;
+            point = Point.FessPoint;
+            this.shape = shape;
+            this.tincture = tincture;
+        }
+
+        public Charge(ChargeShape shape, Color tincture, Point point) {
+            type = ChargeType.Positioned;
+            this.point = point;
+            this.shape = shape;
+            this.tincture = tincture;
+        }
+
+        public Charge(ChargeShape shape, Color tincture, OrdinaryShape layout) {
+            type = ChargeType.LaidOut;
+            this.layout = layout;
+            this.shape = shape;
+            this.tincture = tincture;
+        }
+
+        public override string ToBlazonDescription() {
+            string ret = string.Empty;
+            switch(type){
+                case ChargeType.Single:
+                    ret = "a " + shape.ToString() + " " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+                    break;
+                case ChargeType.Multiple:
+                    ret = NumberWords.FirstOrDefault(x => x.Value == count).Key + " " + shape.ToString() + "s " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+                    break;
+                case ChargeType.Positioned:
+                    ret = "in " + PointWords.FirstOrDefault(x => x.Value == point).Key + " a " + shape.ToString() + " " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+                    break;
+                case ChargeType.LaidOut:
+                    ret = "A more complex description of the ordinary this is on";
+                    break;
+                default:
+                    break;
+            }
             return ret;
         }
     }
@@ -413,24 +590,21 @@ public class BlazonParser : MonoBehaviour {
                 return field;
             case Division.Saltire: 
                 field = Fill(field, tinctures[0]);
-                Debug.Log("Filled");
                 field = DrawLineSegment(field, new Vector2Int(0, 0), new Vector2Int(field.width-1, field.height-1), tinctures[1]);
-                Debug.Log("DrawLineSegment lower left to upper right");
                 field = DrawLineSegment(field, new Vector2Int(field.width-1, 0), new Vector2Int(0, field.height-1), tinctures[1]);
-                Debug.Log("Draw Line segment upper left to lower right");
                 field = FloodFill(field, new Vector2Int(0, field.height/2), tinctures[1], FloodFillMode.UntilTargetColor);
-                Debug.Log("Flood Fill left");
                 field = FloodFill(field, new Vector2Int(field.width-1, field.height / 2), tinctures[1], FloodFillMode.UntilTargetColor);
-                Debug.Log("Flood fill right");
                 return field;
             case Division.Pall: 
-                field = DrawLineSegment(field, new Vector2Int(0, field.height), new Vector2Int(field.width/2, field.height/3*2), tinctures[0]);
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height / 3 * 2), new Vector2Int(field.width, field.height), tinctures[0]);
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height / 3 * 2), new Vector2Int(field.width/2,0), tinctures[1]);
-
-                field = FloodFill(field, new Vector2Int(field.width / 2, field.height), tinctures[0], FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(0, 0), tinctures[1], FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(field.width - 1, 0), tinctures[2], FloodFillMode.AllSeedColor);
+                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 2 / 3), new Vector2Int(0, field.height - 1), tinctures[0]);
+                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 2 / 3), new Vector2Int(field.width - 1, field.height - 1), tinctures[0]);
+                field = FloodFill(field, new Vector2Int(field.width / 2, field.height - 1), tinctures[0], FloodFillMode.UntilTargetColor);
+                field = FloodFill(field, new Vector2Int(0, 0), tinctures[1], FloodFillMode.AllSeedColor);
+                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 2 / 3), new Vector2Int(field.width/2, 0), tinctures[2]);
+                field = FloodFill(field, new Vector2Int(field.width-1, 0), tinctures[2], FloodFillMode.AllSeedColor);
+                
+                
+                //field = FloodFill(field, new Vector2Int(field.width - 1, 0), tinctures[2], FloodFillMode.AllSeedColor);
                 return field;
             default: 
                 break;
@@ -440,7 +614,6 @@ public class BlazonParser : MonoBehaviour {
     }
 
     public static Texture2D ApplyVariation(Texture2D field, Variation variation, Color[] tinctures, int patternCount = 4, bool sinister = false) {
-        Vector2Int p1, p2;
         int patternStep = field.width / patternCount;
         int colorDex;
 
@@ -559,15 +732,46 @@ public class BlazonParser : MonoBehaviour {
                     offsetRight--;
 
                 }
+                return field;
+            case Variation.Gyronny:
+                field = Fill(field, tinctures[0]);
+                Vector2Int center = new Vector2Int(field.width / 2, field.height / 2);
+                field = DrawLineSegment(field, center, new Vector2Int(0, field.height / 2), tinctures[1]);
+                field = DrawLineSegment(field, center, new Vector2Int(0, field.height - 1), tinctures[1]);
 
-            
+                field = DrawLineSegment(field, center, new Vector2Int(field.width / 2, field.height - 1), tinctures[1]);
+                field = DrawLineSegment(field, center, new Vector2Int(field.width - 1, field.height - 1), tinctures[1]);
 
-                //field = Fill(field, tinctures[0]);
-                //for (int i = patternStep; i < field.height; i += patternStep) {
-                //    for (int j = i % 2 == 0 ? patternStep : 0; j < field.width; j += patternStep) {
-                //        field = DrawRect(field, new RectInt(j, i, patternStep, patternStep), tinctures[1]);
-                //    }
-                //}
+                field = DrawLineSegment(field, center, new Vector2Int(field.width - 1, field.height / 2), tinctures[1]);
+                field = DrawLineSegment(field, center, new Vector2Int(field.width - 1, 0), tinctures[1]);
+
+                field = DrawLineSegment(field, center, new Vector2Int(field.width / 2, 0), tinctures[1]);
+                field = DrawLineSegment(field, center, new Vector2Int(0, 0), tinctures[1]);
+
+                field = FloodFill(field, new Vector2Int(0, field.height *3 /4), tinctures[1], FloodFillMode.UntilTargetColor);
+                field = FloodFill(field, new Vector2Int(field.width * 3 / 4, field.height - 1), tinctures[1], FloodFillMode.UntilTargetColor);
+                field = FloodFill(field, new Vector2Int(field.width - 1, field.height / 4), tinctures[1], FloodFillMode.UntilTargetColor);
+                field = FloodFill(field, new Vector2Int(field.width / 4, 0), tinctures[1], FloodFillMode.UntilTargetColor);
+                
+                return field;
+
+            case Variation.Lozengy:
+                field = Fill(field, tinctures[0]);
+                for(int x = 0; x < patternCount; x++) {
+                    for(int y = 0; y < patternCount; y++) {
+                        field = DrawLozenge(field, new RectInt(x * patternStep, y * patternStep, patternStep, patternStep), tinctures[1]);
+
+                    }
+                }
+                return field;
+            case Variation.Fusilly:
+                field = Fill(field, tinctures[0]);
+                for (int x = 0; x < patternCount*2; x++) {
+                    for (int y = 0; y < patternCount; y++) {
+                        field = DrawLozenge(field, new RectInt(x * patternStep / 2, y * patternStep, patternStep/2, patternStep), tinctures[1]);
+
+                    }
+                }
                 return field;
             default:
                 Debug.LogFormat("Haven't implemented {0} yet", variation);
@@ -580,10 +784,10 @@ public class BlazonParser : MonoBehaviour {
     public static Texture2D ApplyOrdinary(Texture2D field, OrdinaryShape shape, Color tincture, bool sinister = false) {
         switch (shape) {
             case OrdinaryShape.Chief:
-                field = DrawRect(field, new RectInt(0, field.height*2/3, field.width, field.height -1), tincture);
+                field = DrawRect(field, new RectInt(0, field.height*2/3, field.width - 1, field.height -1), tincture);
                 return field;
             case OrdinaryShape.Fess:
-                field = DrawRect(field, new RectInt(0, field.height / 2 + field.height / 8, field.width, field.height / 4), tincture);
+                field = DrawRect(field, new RectInt(0, field.height / 2 + field.height / 8, field.width - 1, field.height / 4), tincture);
                 return field;
             case OrdinaryShape.Pale:
                 field = DrawRect(field, new RectInt(field.width / 2 - field.width / 8, 0, field.width / 4, field.height), tincture);
@@ -594,19 +798,92 @@ public class BlazonParser : MonoBehaviour {
                 return field;
             case OrdinaryShape.Bend:
                 if (sinister) {
-                    field = DrawLine(field, new Vector2Int(0, 0), new Vector2Int(1, 1), tincture, field.width / 5);
+                    field = DrawLine(field, new Vector2Int(0, 0), new Vector2Int(1, 1), tincture, field.width / 8);
                 }
                 else {
-                    field = DrawLine(field, new Vector2Int(0, field.height), new Vector2Int(1, -1), tincture, field.width / 5);
+                    field = DrawLine(field, new Vector2Int(0, field.height), new Vector2Int(1, -1), tincture, field.width / 8);
                 }
                 return field;
+            case OrdinaryShape.Saltire:
+                field = DrawLineSegment(field, new Vector2Int(field.width / 8, 0), new Vector2Int(field.width - 1, field.height * 7 / 8), tincture);
+                field = DrawLineSegment(field, new Vector2Int(0, field.height / 8), new Vector2Int(field.width * 7 / 8, field.height - 1), tincture);
+
+                field = DrawLineSegment(field, new Vector2Int(field.width / 8, field.height-1), new Vector2Int(field.width - 1, field.height / 8), tincture);
+                field = DrawLineSegment(field, new Vector2Int(0, field.width * 7 / 8), new Vector2Int(field.width * 7 / 8, 0), tincture);
+
+                field = FloodFill(field, new Vector2Int(field.width / 2, field.height / 2), tincture, FloodFillMode.UntilTargetColor);
+                field = FloodFill(field, new Vector2Int(0, 0), tincture, FloodFillMode.UntilTargetColor);
+                field = FloodFill(field, new Vector2Int(0, field.height-1), tincture, FloodFillMode.UntilTargetColor);
+                field = FloodFill(field, new Vector2Int(field.width-1, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
+                field = FloodFill(field, new Vector2Int(field.width - 1, 0), tincture, FloodFillMode.UntilTargetColor);
+                return field;
+
+            case OrdinaryShape.Pile:
+                field = DrawLineSegment(field, new Vector2Int(field.width / 4, field.height-1), new Vector2Int(field.width / 2, field.height / 10), tincture);
+                field = DrawLineSegment(field, new Vector2Int(field.width * 3 / 4, field.height - 1), new Vector2Int(field.width / 2, field.height / 10), tincture);
+                field = FloodFill(field, new Vector2Int(field.width /2, field.height-1), tincture, FloodFillMode.UntilTargetColor);
+                return field;
+            
+            case OrdinaryShape.Chevron:
+                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(0, field.height / 4), tincture);
+                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(field.width-1, field.height / 4), tincture);
+                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(0, field.height / 4 - field.height / 5), tincture);
+                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(field.width-1, field.height / 4 - field.height / 5), tincture);
+                field = FloodFill(field, new Vector2Int(field.width / 2, field.height * 3 / 4 - 1), tincture, FloodFillMode.UntilTargetColor);
+                return field;
+
+            case OrdinaryShape.Pall:
+            case OrdinaryShape.Bordure:
             default:
                 Debug.LogFormat("Haven't implemented {0} yet", shape);
                 return field;
 
         }
+    }
 
-        return field;
+    public static Texture2D ApplyCharge(Texture2D field, Charge charge) {
+        switch (charge.type) {
+            case ChargeType.Single:
+                return ApplySingleCharge(field, charge);
+
+            case ChargeType.Positioned:
+            case ChargeType.Multiple:
+            case ChargeType.LaidOut:
+            default:
+                Debug.LogFormat("Haven't implemented {0} yet", charge.type);
+                return field;
+        }
+    }
+
+   public static Texture2D ApplySingleCharge(Texture2D field, Charge charge) {
+        switch (charge.shape) {
+            case ChargeShape.Roundel:
+                field = DrawCircle(field, new Vector2Int(field.width / 2, field.height / 2), field.width/4, charge.tincture);
+                return field;
+            case ChargeShape.Lozenge:
+                field = DrawLozenge(field, new RectInt(field.width/4,field.height*3/4,field.width/2,field.height/2), charge.tincture);
+                return field;
+            case ChargeShape.Fusil:
+                field = DrawLozenge(field, new RectInt(field.width * 3 / 8, field.height * 3 / 4, field.width / 4, field.height / 2), charge.tincture);
+                return field;
+            case ChargeShape.Billet:
+                field = DrawRect(field, new RectInt(field.width * 3 / 8, field.height / 4, field.width / 4, field.height / 2), charge.tincture);
+                return field;
+            case ChargeShape.Annulet:
+                field = DrawRing(field, new Vector2Int(field.width / 2, field.height / 2), field.width / 6, field.width / 4, charge.tincture);
+                return field;
+            case ChargeShape.Mascle:
+                field = DrawMascle(field,
+                    new RectInt(field.width / 4, field.height * 3 / 4, field.width / 2, field.height / 2),
+                    new RectInt(field.width * 3/8, field.height * 5/8, field.width / 4, field.height / 4),
+                    charge.tincture);
+                return field;
+            case ChargeShape.Mullet:
+            case ChargeShape.Rustre:
+            default:
+                Debug.LogFormat("Haven't implemented {0} yet", charge.shape);
+                return field;
+        }
     }
 
     private GUIStyle testTextureStyle = null;
@@ -700,6 +977,17 @@ public class BlazonParser : MonoBehaviour {
         return field;
     }
 
+    public static Texture2D Replace(Texture2D field, Color oldColor, Color targetColor) {
+        for (int x = 0; x < field.width; x++) {
+            for (int y = 0; y < field.height; y++) {
+                if (field.GetPixel(x, y) == oldColor) {
+                    field.SetPixel(x, y, targetColor);
+                }
+            }
+        }
+        return field;
+    }
+
     public static Texture2D DrawRect(Texture2D field, RectInt rect, Color color) {
         for (int x = rect.x; x < rect.x + rect.width; x++) {
             for (int y = rect.y; y < rect.y + rect.height; y++) {
@@ -708,6 +996,68 @@ public class BlazonParser : MonoBehaviour {
         }
         return field;
     }
+
+    public static Texture2D DrawLozenge(Texture2D field, RectInt rect, Color color) {
+        Vector2Int left = new Vector2Int(rect.x, rect.y - rect.height / 2);
+        Vector2Int right = new Vector2Int(rect.x + rect.width, rect.y - rect.height / 2);
+        Vector2Int top = new Vector2Int(rect.x + rect.width / 2, rect.y);
+        Vector2Int bottom = new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height);
+        field = DrawLineSegment(field, left, top, color);
+        field = DrawLineSegment(field, top, right, color);
+        field = DrawLineSegment(field, right, bottom, color);
+        field = DrawLineSegment(field, bottom, left, color);
+        field = FloodFill(field, new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height / 2), color, FloodFillMode.UntilTargetColor);
+        return field;
+    }
+
+    public static Texture2D DrawMascle(Texture2D field, RectInt outerRect, RectInt innerRect, Color color) {
+        Vector2Int outLeft = new Vector2Int(outerRect.x, outerRect.y - outerRect.height / 2);
+        Vector2Int outRight = new Vector2Int(outerRect.x + outerRect.width, outerRect.y - outerRect.height / 2);
+        Vector2Int outTop = new Vector2Int(outerRect.x + outerRect.width / 2, outerRect.y);
+        Vector2Int outBottom = new Vector2Int(outerRect.x + outerRect.width / 2, outerRect.y - outerRect.height);
+
+        Vector2Int inLeft = new Vector2Int(innerRect.x, innerRect.y - innerRect.height / 2);
+        Vector2Int inRight = new Vector2Int(innerRect.x + innerRect.width, innerRect.y - innerRect.height / 2);
+        Vector2Int inTop = new Vector2Int(innerRect.x + innerRect.width / 2, innerRect.y);
+        Vector2Int inBottom = new Vector2Int(innerRect.x + innerRect.width / 2, innerRect.y - innerRect.height);
+
+        field = DrawLineSegment(field, outLeft, outTop, color);
+        field = DrawLineSegment(field, outTop, outRight, color);
+        field = DrawLineSegment(field, outRight, outBottom, color);
+        field = DrawLineSegment(field, outBottom, outLeft, color);
+
+        field = DrawLineSegment(field, inLeft, inTop, color);
+        field = DrawLineSegment(field, inTop, inRight, color);
+        field = DrawLineSegment(field, inRight, inBottom, color);
+        field = DrawLineSegment(field, inBottom, inLeft, color);
+
+
+        field = FloodFill(field, new Vector2Int(outLeft.x +1, outLeft.y) , color, FloodFillMode.UntilTargetColor);
+        return field;
+    }
+
+    public static Texture2D DrawCircle(Texture2D field, Vector2Int center, int radius, Color color) {
+        for (int x = center.x - radius; x < center.x + radius; x++) {
+            for (int y = center.y - radius; y < center.y + radius; y++) {
+                if (Vector2Int.Distance(center, new Vector2Int(x, y)) <= radius) {
+                    field.SetPixel(x, y, color);
+                }
+            }
+        }
+        return field;
+    }
+
+    public static Texture2D DrawRing(Texture2D field, Vector2Int center, int minRadius, int maxRadius, Color color) {
+        for (int x = center.x - maxRadius; x < center.x + maxRadius; x++) {
+            for (int y = center.y - maxRadius; y < center.y + maxRadius; y++) {
+                if (Vector2Int.Distance(center, new Vector2Int(x, y)) <= maxRadius && Vector2Int.Distance(center, new Vector2Int(x,y)) > minRadius) {
+                    field.SetPixel(x, y, color);
+                }
+            }
+        }
+        return field;
+    }
+
 
     //Given a Color[,] field and starting point, draw a line in the field of a given slope using Bresenham's line algorithm
     public static Texture2D DrawLine(Texture2D field, Vector2Int intercept, Vector2Int slope, Color color, int thickness) {
