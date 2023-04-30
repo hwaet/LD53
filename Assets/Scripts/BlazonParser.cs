@@ -787,7 +787,7 @@ public class BlazonParser : MonoBehaviour {
                 field = DrawRect(field, new RectInt(0, field.height*2/3, field.width - 1, field.height -1), tincture);
                 return field;
             case OrdinaryShape.Fess:
-                field = DrawRect(field, new RectInt(0, field.height / 2 + field.height / 8, field.width - 1, field.height / 4), tincture);
+                field = DrawRect(field, new RectInt(0, field.height / 2 - field.height / 8, field.width - 1, field.height / 4), tincture);
                 return field;
             case OrdinaryShape.Pale:
                 field = DrawRect(field, new RectInt(field.width / 2 - field.width / 8, 0, field.width / 4, field.height), tincture);
