@@ -13,6 +13,11 @@ public class GuiManager : MonoBehaviour
         canvasGroup = GetComponent<CanvasGroup>();
     }
 
+    private void Start()
+    {
+        OnValidate();
+    }
+
     [ContextMenu("Close")]
     // Update is called once per frame
     public void CloseGUI()
