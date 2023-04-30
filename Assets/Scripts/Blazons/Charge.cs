@@ -39,6 +39,7 @@ public class Charge : Element {
         point = Blazon.Point.FessPoint;
         this.shape = shape;
         this.tincture = tincture;
+        this.count = count;
     }
 
     public Charge(ChargeShape shape, Color tincture, Blazon.Point point) {

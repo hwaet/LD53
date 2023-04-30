@@ -1,6 +1,10 @@
+using Mono.Cecil;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem.Switch;
+using UnityEngine.UIElements;
 using static Blazon;
 using static Charge;
 using static Field;
@@ -306,6 +310,9 @@ public static class BlazonDrawers  {
                 return ApplyChargeAtPoint(field, charge, field.width / 3);
 
             case ChargeType.Multiple:
+                RectInt[] placements = GetChargeLayout(field, charge.count);
+                return ApplyChargesAtPlacements(field, charge, placements);
+
             case ChargeType.LaidOut:
             default:
                 Debug.LogFormat("Haven't implemented {0} yet", charge.type);
@@ -330,15 +337,57 @@ public static class BlazonDrawers  {
                 field = DrawBillet(field, outerRect, charge.tincture);
                 return field;
             case ChargeShape.Annulet:
-                RectInt innerRect = outerRect.ConcentricRectInt(outerRect.width / 4);
+                RectInt innerRect = outerRect.ConcentricRectInt(outerRect.width * 3 / 4);
                 field = DrawAnnulet(field, outerRect, innerRect, charge.tincture);
                 return field;
             case ChargeShape.Mascle:
-                RectInt innerRect2 = outerRect.ConcentricRectInt(outerRect.width / 4);
+                RectInt innerRect2 = outerRect.ConcentricRectInt(outerRect.width * 3 / 4);
                 field = DrawMascle(field, outerRect, innerRect2, charge.tincture);
                 return field;
+            default:
+                Debug.LogFormat("Haven't implemented {0} yet", charge.shape);
+                return field;
         }
-        return field;
+    }
+
+    public static Texture2D ApplyChargesAtPlacements(Texture2D field, Charge charge, RectInt[] placements) {
+        switch (charge.shape) {
+            case ChargeShape.Roundel:
+                foreach (RectInt place in placements) {
+                    field = DrawCircle(field, place, charge.tincture);
+                }
+                return field;
+            case ChargeShape.Lozenge:
+                foreach (RectInt place in placements) {
+                    field = DrawLozenge(field, place, charge.tincture);
+                }
+                return field;
+            case ChargeShape.Fusil:
+                foreach (RectInt place in placements) {
+                    field = DrawFusil(field, place, charge.tincture);
+                }
+                return field;
+            case ChargeShape.Billet:
+                foreach (RectInt place in placements) {
+                    field = DrawBillet(field, place, charge.tincture);
+                }
+                return field;
+            case ChargeShape.Annulet:
+                foreach (RectInt place in placements) {
+                    RectInt innerRect = place.ConcentricRectInt(place.width / 4);
+                    field = DrawAnnulet(field, place, innerRect, charge.tincture);
+                }
+                return field;
+            case ChargeShape.Mascle:
+                foreach (RectInt place in placements) {
+                    RectInt innerRect2 = place.ConcentricRectInt(place.width / 4);
+                    field = DrawMascle(field, place, innerRect2, charge.tincture);
+                }
+                return field;
+            default:
+                Debug.LogFormat("Haven't implemented {0} yet", charge.shape);
+                return field;
+        }
     }
 
     #endregion
@@ -368,6 +417,44 @@ public static class BlazonDrawers  {
             //Default to the Fess Point
             _ => new RectInt(field.width / 2 - size / 2, field.height / 2 + size / 2, size, size),
         };
+    }
+
+    public static RectInt[] GetChargeLayout(Texture2D field, int number) {
+        if(number < 1) {
+            throw new ArgumentException("Number of charges must be greater than 0");
+        }
+        int width;
+        switch (number) {
+            case 1:
+                return new RectInt[] { RectFromPoint(field, Point.FessPoint, field.width / 2) };
+            case 2:
+                width = field.width / 4;
+                return new RectInt[] { new RectInt(field.width / 7, field.height * 3 / 4 + width / 2, width, width),
+                            new RectInt(field.width * 4 / 7, field.height * 3 / 4 + width / 2, width, width) };
+            case 4:
+                width = field.width / 4;
+                int x1 = field.width / 3;
+                int x2 = field.width * 2 / 3;
+                int y1 = field.height * 2 / 5;
+                int y2 = field.height * 4 / 5;
+                return new RectInt[] { new RectInt(x1 - width / 2, y1 + width / 2, width, width),
+                                        new RectInt(x1 - width / 2, y2 + width / 2, width, width),
+                                        new RectInt(x2 - width / 2, y1 + width / 2, width, width),
+                                        new RectInt(x2 - width / 2, y2 + width / 2, width, width) };
+                  
+            default:
+                width = field.width / Mathf.Max(number, 4);
+                int angle = 360 / number;
+                List<RectInt>  rects = new List<RectInt>();
+                //iterate through the number of charge moving along a circle, starting at the top generate a point and then rotate the point by the angle
+                //add the point to the list of points
+                for (int i = 0; i < number; i++) {
+                        int x = field.width / 2 + (int)((field.width / 4) * Mathf.Sin((angle * i + 180) * Mathf.Deg2Rad));
+                        int y = field.height / 2 + (int)((field.height / 4) * Mathf.Cos((angle * i + 180) * Mathf.Deg2Rad));
+                        rects.Add(new RectInt(x - width / 2, y + width / 2, width, width));
+                }
+                return rects.ToArray();
+        }
     }
 
     public static Texture2D TextureFromColorsArray(Color[,] colors) {
@@ -409,7 +496,7 @@ public static class BlazonDrawers  {
 
     public static Texture2D StampToTexture (Texture2D field, Color[,] stamp) {
         if(field.width != stamp.GetLength(0) || field.height != stamp.GetLength(1)) {
-            throw new System.Exception("Stamp and field must be the same size");
+            throw new ArgumentException("Stamp and field must be the same size");
         }
 
         for (int x = 0; x < field.width; x++) {

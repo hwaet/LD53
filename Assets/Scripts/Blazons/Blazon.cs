@@ -228,7 +228,7 @@ public class Blazon {
             case FieldTypes.Varied:
                 ret = field.variation.ToString();
                 if(field.count > 0) {
-                    ret += " of" + Numbers.FirstOrDefault(x => x.Value == field.count).Key;
+                    ret += " of " + Numbers.FirstOrDefault(x => x.Value == field.count).Key;
                 }
 
                 for (int i =0; i < field.tinctures.Length; i++) {
