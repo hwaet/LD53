@@ -9,10 +9,18 @@ public class BlazonGenerator : MonoBehaviour
     public string blazonDescription = "Azure, a bend Or";
     public Texture2D blazonTexture;
 
+    public SkinnedMeshRenderer bannerRenderer;
+
 	// Start is called before the first frame update
 	void OnValidate()
     {
         bp = GetComponent<BlazonParser>();
+
+	}
+
+    private void Start()
+    {
+        Generate();
     }
 
     [ContextMenu("Generate")]
@@ -22,5 +30,9 @@ public class BlazonGenerator : MonoBehaviour
         BlazonParser.Blazon newBlazon;
 		newBlazon = BlazonParser.Blazon.Parse(blazonDescription);
 		blazonTexture = newBlazon.GenerateTexture(256);
+
+		bannerRenderer.sharedMaterial.SetTexture("_Blazon_Texture", blazonTexture);
+
 	}
+
 }

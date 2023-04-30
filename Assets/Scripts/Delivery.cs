@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,22 +9,46 @@ public class Delivery : MonoBehaviour
     public Texture2D currentBlazon;
     Paintbrush paintbrush;
 
+	public LayerMask layerMask;
     public BlazonGenerator targetBlazonGenerator;
+
+	EvaluateGui evgui;
 
     // Start is called before the first frame update
     void Start()
     {
         paintbrush = FindObjectOfType<Paintbrush>();
         currentBlazon = new Texture2D(256,256,TextureFormat.RGBA32,false);
-    }
+		evgui = FindObjectOfType<EvaluateGui>();
+
+	}
 
     // Update is called once per frame
     void Update()
     {
-        
+        if (Input.GetMouseButtonDown(0))
+		{
+			DeliverBlazon();
+		}
     }
 
-    [ContextMenu("copy blazon")]
+	private void DeliverBlazon()
+	{
+		
+		Ray camRay = Camera.main.ScreenPointToRay(Input.mousePosition);
+		Debug.DrawRay(camRay.origin, camRay.direction*1000,Color.white,2f);
+
+		RaycastHit hitInfo;
+		bool hit = Physics.Raycast(camRay, out hitInfo, 9999f, layerMask);
+		if (hit==false) return;
+
+		targetBlazonGenerator = hitInfo.collider.gameObject.GetComponent<BlazonGenerator>();
+		float score = TestAccuracy();
+
+		evgui.Evaluate(currentBlazon, targetBlazonGenerator.blazonTexture, score.ToString());
+	}
+
+	[ContextMenu("copy blazon")]
     public void CopyBlazon()
 	{
 		///GPU only, we can't compare pixels with this on the cpu
@@ -64,5 +89,7 @@ public class Delivery : MonoBehaviour
 	{
         paintbrush.ResetRenderTexture();
 	}
+
+
 
 }
