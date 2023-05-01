@@ -1,11 +1,6 @@
-using Mono.Cecil;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.InputSystem.Switch;
-using UnityEngine.UIElements;
 using static Blazon;
 using static Charge;
 using static Field;
@@ -242,6 +237,7 @@ public static class BlazonDrawers  {
     }
 
     public static Texture2D ApplyOrdinary(Texture2D field, OrdinaryShape shape, Color tincture, bool sinister = false) {
+        Color [,] stamp = field.GetStampTemplate();
         switch (shape) {
             case OrdinaryShape.Chief:
                 field = DrawRect(field, new RectInt(0, field.height * 2 / 3, field.width, field.height), tincture);
@@ -265,27 +261,29 @@ public static class BlazonDrawers  {
                 }
                 return field;
             case OrdinaryShape.Saltire:
-                field = DrawLineSegment(field, new Vector2Int(field.width / 8, 0), new Vector2Int(field.width - 1, field.height * 7 / 8), tincture);
-                field = DrawLineSegment(field, new Vector2Int(0, field.height / 8), new Vector2Int(field.width * 7 / 8, field.height - 1), tincture);
 
-                field = DrawLineSegment(field, new Vector2Int(field.width / 8, field.height - 1), new Vector2Int(field.width - 1, field.height / 8), tincture);
-                field = DrawLineSegment(field, new Vector2Int(0, field.width * 7 / 8), new Vector2Int(field.width * 7 / 8, 0), tincture);
+                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 8, 0), new Vector2Int(field.width - 1, field.height * 7 / 8), tincture);
+                stamp = DrawLineSegment(stamp, new Vector2Int(0, field.height / 8), new Vector2Int(field.width * 7 / 8, field.height - 1), tincture);
 
-                field = FloodFill(field, new Vector2Int(field.width / 2, field.height / 2), tincture, FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(0, 0), tincture, FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(0, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(field.width - 1, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(field.width - 1, 0), tincture, FloodFillMode.UntilTargetColor);
-                return field;
+                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 8, field.height - 1), new Vector2Int(field.width - 1, field.height / 8), tincture);
+                stamp = DrawLineSegment(stamp, new Vector2Int(0, field.width * 7 / 8), new Vector2Int(field.width * 7 / 8, 0), tincture);
+
+                stamp = FloodFill(stamp, new Vector2Int(field.width / 2, field.height / 2), tincture, FloodFillMode.UntilTargetColor);
+                stamp = FloodFill(stamp, new Vector2Int(0, 0), tincture, FloodFillMode.UntilTargetColor);
+                stamp = FloodFill(stamp, new Vector2Int(0, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
+                stamp = FloodFill(stamp, new Vector2Int(field.width - 1, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
+                stamp = FloodFill(stamp, new Vector2Int(field.width - 1, 0), tincture, FloodFillMode.UntilTargetColor);
+                return StampToTexture(field, stamp);
 
             case OrdinaryShape.Pile:
-                field = DrawLineSegment(field, new Vector2Int(field.width / 4, field.height - 1), new Vector2Int(field.width / 2, field.height / 10), tincture);
-                field = DrawLineSegment(field, new Vector2Int(field.width * 3 / 4, field.height - 1), new Vector2Int(field.width / 2, field.height / 10), tincture);
-                field = FloodFill(field, new Vector2Int(field.width / 2, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
-                return field;
+                stamp = field.GetStampTemplate();
+                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 4, field.height - 1), new Vector2Int(field.width / 2, field.height / 10), tincture);
+                stamp = DrawLineSegment(stamp, new Vector2Int(field.width * 3 / 4, field.height - 1), new Vector2Int(field.width / 2, field.height / 10), tincture);
+                stamp = FloodFill(stamp, new Vector2Int(field.width / 2, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
+                return StampToTexture(field, stamp);
 
             case OrdinaryShape.Chevron:
-                Color[,] stamp = field.GetStampTemplate();
+                stamp = field.GetStampTemplate();
                 stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(0, field.height / 4), tincture);
                 stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(field.width - 1, field.height / 4), tincture);
                 stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(0, field.height / 4 - field.height / 5), tincture);
@@ -576,28 +574,55 @@ public static class BlazonDrawers  {
     }
 
     public static Texture2D DrawLozenge(Texture2D field, RectInt rect, Color color) {
-        Vector2Int left = new Vector2Int(rect.x, rect.y - rect.height / 2);
-        Vector2Int right = new Vector2Int(rect.x + rect.width, rect.y - rect.height / 2);
-        Vector2Int top = new Vector2Int(rect.x + rect.width / 2, rect.y);
-        Vector2Int bottom = new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height);
-        field = DrawLineSegment(field, left, top, color);
-        field = DrawLineSegment(field, top, right, color);
-        field = DrawLineSegment(field, right, bottom, color);
-        field = DrawLineSegment(field, bottom, left, color);
-        field = FloodFill(field, new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height / 2), color, FloodFillMode.UntilTargetColor);
-        return field;
+        Color[,] stamp = field.GetStampTemplate();
+        stamp = DrawLozenge(stamp, rect, color);
+        return StampToTexture(field, stamp);
     }
 
     public static Color[,] DrawLozenge(Color[,] field, RectInt rect, Color color) {
-        Vector2Int left = new Vector2Int(rect.x, rect.y - rect.height / 2);
-        Vector2Int right = new Vector2Int(rect.x + rect.width, rect.y - rect.height / 2);
-        Vector2Int top = new Vector2Int(rect.x + rect.width / 2, rect.y);
-        Vector2Int bottom = new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height);
-        field = DrawLineSegment(field, left, top, color);
-        field = DrawLineSegment(field, top, right, color);
-        field = DrawLineSegment(field, right, bottom, color);
-        field = DrawLineSegment(field, bottom, left, color);
-        field = FloodFill(field, new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height / 2), color, FloodFillMode.UntilTargetColor);
+        float slope = (float)rect.height / rect.width;
+        for(int x = 0; x < rect.width; x++) {
+            for(int y = 0; y < rect.height; y++) {                
+                
+                if(x < rect.width/2) {
+                    //we're left
+                    if( y > rect.height / 2) {
+                        //Up left
+                        if(y <= x * slope + rect.height / 2 && 
+                            x + rect.x < field.GetLength(0) && y + rect.y - rect.height < field.GetLength(1) && 
+                            x + rect.x >= 0 && y + rect.y - rect.height >= 0 ) { 
+                            field[x + rect.x, y + rect.y - rect.height] = color;
+                        }
+                    }
+                    else {
+                        //Down Left
+                        if(y >= x * -slope + rect.height /2 &&
+                            x + rect.x < field.GetLength(0) && y + rect.y - rect.height < field.GetLength(1) &&
+                            x + rect.x >= 0 && y + rect.y - rect.height >= 0) {
+                            field[x + rect.x, y + rect.y - rect.height] = color;
+                        }
+                    }
+                }
+                else {
+                    if (y > rect.height / 2) {
+                        // Up right
+                        if (y <= x * -slope + rect.height * 3 / 2 &&
+                            x + rect.x < field.GetLength(0) && y + rect.y - rect.height < field.GetLength(1) &&
+                            x + rect.x >= 0 && y + rect.y - rect.height >= 0) {
+                            field[x + rect.x, y + rect.y - rect.height] = color;
+                        }
+                    }
+                    else {
+                        // Down right
+                        if (y >= x * slope - rect.height / 2 &&
+                            x + rect.x < field.GetLength(0) && y + rect.y - rect.height < field.GetLength(1) &&
+                            x + rect.x >= 0 && y + rect.y - rect.height >= 0) {
+                            field[x + rect.x, y + rect.y - rect.height] = color;
+                        }
+                    }
+                }
+            }
+        }
         return field;
     }
 
@@ -623,9 +648,9 @@ public static class BlazonDrawers  {
     public static Texture2D DrawRustre(Texture2D field, RectInt outerRect, Color color) {
         Color[,] stamp = field.GetStampTemplate();
         stamp = DrawFusil(stamp, outerRect, color);
-        stamp = DrawCircle(stamp, new Vector2Int(outerRect.x + outerRect.width / 4,
-                                                 outerRect.y + outerRect.height / 4),
-                                                 outerRect.width / 4, Color.clear);
+        stamp = DrawCircle(stamp, new Vector2Int(outerRect.x + outerRect.width / 2,
+                                                 outerRect.y - outerRect.height / 2),
+                                                 outerRect.width / 8, Color.clear);
         return StampToTexture(field, stamp);
     }
 
@@ -832,6 +857,10 @@ public static class BlazonDrawers  {
         while (pixelStack.Count > 0) {
             Vector2Int node = pixelStack.Pop();
             field.SetPixel(node.x, node.y, color);
+
+            if(pixelStack.Count > field.width * field.height) {
+                return field;
+            }
 
             switch (fillMode) {
                 case FloodFillMode.AllSeedColor:
