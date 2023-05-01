@@ -57,9 +57,10 @@ public class Delivery : MonoBehaviour
 		////Graphics.CopyTexture(paintbrush.renderTex, currentBlazon);
 
 		///Very Slow!
-		//Rect regionToReadFrom = new Rect(0, 0, paintbrush.renderTex.width, paintbrush.renderTex.height);
-		//currentBlazon.ReadPixels(regionToReadFrom, 0, 0);
-		//currentBlazon.Apply();
+		RenderTexture.active = paintbrush.renderTex;
+		Rect regionToReadFrom = new Rect(0, 0, paintbrush.renderTex.width, paintbrush.renderTex.height);
+		currentBlazon.ReadPixels(regionToReadFrom, 0, 0);
+		currentBlazon.Apply();
 
 		////Synchronously
 		//var asyncAction = AsyncGPUReadback.Request(paintbrush.renderTex, 0);
@@ -68,11 +69,11 @@ public class Delivery : MonoBehaviour
 		//currentBlazon.Apply();
 
 		//Asynchronously
-		AsyncGPUReadback.Request(paintbrush.renderTex, 0, (AsyncGPUReadbackRequest asyncAction) =>
-		{
-			currentBlazon.SetPixelData(asyncAction.GetData<byte>(), 0);
-			currentBlazon.Apply();
-		});
+		//AsyncGPUReadback.Request(paintbrush.renderTex, 0, (AsyncGPUReadbackRequest asyncAction) =>
+		//{
+		//	currentBlazon.SetPixelData(asyncAction.GetData<byte>(), 0);
+		//	currentBlazon.Apply();
+		//});
 	}
 
     [ContextMenu("Test Accuracy")]
