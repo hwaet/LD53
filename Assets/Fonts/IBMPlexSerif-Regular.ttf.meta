@@ -1,0 +1,23 @@
+fileFormatVersion: 2
+guid: 08887997bb1c7cb4392cd39c245327a7
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontNames:
+  - IBM Plex Serif
+  fallbackFontReferences:
+  - {fileID: 12800000, guid: 54c4d342c02b2254da48016b53dc3705, type: 3}
+  - {fileID: 12800000, guid: a3f4340e338f4224a90e6904f1abb298, type: 3}
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
