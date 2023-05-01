@@ -10,11 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f48e5c287607b03449d8c8adb3be566e, type: 3}
-  m_Name: Level1
+  m_Name: Level4
   m_EditorClassIdentifier: 
-  narrativeText: "My good master's shield hath been ruined; the page left it outside,
-    now 'tis besmirched with the droppings of birds. Prithee, wilt thou paint a replacement?\r"
-  targetBlazon: Azure, a chief Purpure
+  narrativeText: "What ho! Mine shield hath been dragged into the deep by some dread
+    creature that lurks under the ocean's waves. I require a replacement so I might
+    fulfill my sacred tasks.\r"
+  targetBlazon: Vert, three roundels Or
   distractorBlazons:
-  - Gules, a fess Argent
-  - Vert, a chief Or
+  - Argent, a pile Purpure
+  - Purpure, a chevron Vert
+  - Vert, three lozenges Argent
+  - Party per pall Gules Vert and Or,
