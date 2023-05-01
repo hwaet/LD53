@@ -55,6 +55,21 @@ public static class ExtensionMethods {
     }
 
 
+    public static Dictionary<Color, int> GetColorCounts(this Texture2D tex) {
+        Dictionary<Color, int> ret = new Dictionary<Color, int>();
+        for(int x = 0; x < tex.width; x++) {
+            for(int y = 0; y < tex.height; y++) {
+                Color c = tex.GetPixel(x, y);
+                if(ret.ContainsKey(c)) {
+                    ret[c]++;
+                } else {
+                    ret.Add(c, 1);
+                }
+            }
+        }
+        return ret;
+    }
+
 
     public static RectInt ConcentricRectInt (this RectInt rect, int padding) {
         return new RectInt(rect.x + padding, rect.y - padding, rect.width - padding * 2, rect.height - padding * 2);

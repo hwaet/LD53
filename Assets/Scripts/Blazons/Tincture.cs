@@ -76,4 +76,19 @@ public class Tincture {
         {"brunatre", Brunatre },
         {"orange", Orange }
     };
+
+    public static Color ClosestTincture(Color color) {
+        float minDistance = float.MaxValue;
+        Color closestColor = color;
+        foreach (KeyValuePair<string, Color> item in Tinctures) {
+            Vector3 colorVec = new Vector3(color.r, color.g, color.b);
+            Vector3 itemVec = new Vector3(item.Value.r, item.Value.g, item.Value.b);
+            var distance = Vector3.Distance(colorVec, itemVec);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestColor = item.Value;
+            }
+        }
+        return closestColor;
+    }
 }

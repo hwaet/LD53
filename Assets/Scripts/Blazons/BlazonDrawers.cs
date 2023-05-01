@@ -715,7 +715,6 @@ public static class BlazonDrawers  {
     }
 
     public static Texture2D DrawAnnulet(Texture2D field, RectInt outerRect, RectInt innerRect, Color color) {
-        Debug.LogFormat("DrawAnnulet: innerRect: {0}, OuterRect: {1}", innerRect, outerRect);    
         return DrawAnnulet(field, new Vector2Int(outerRect.x + outerRect.width / 2, outerRect.y - outerRect.height / 2),  innerRect.width / 2, outerRect.width / 2, color);
     }
 

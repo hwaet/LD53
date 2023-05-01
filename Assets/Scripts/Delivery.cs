@@ -60,6 +60,13 @@ public class Delivery : MonoBehaviour
 		RenderTexture.active = paintbrush.renderTex;
 		Rect regionToReadFrom = new Rect(0, 0, paintbrush.renderTex.width, paintbrush.renderTex.height);
 		currentBlazon.ReadPixels(regionToReadFrom, 0, 0);
+		for(int x = 0; x < currentBlazon.width; x++) {
+			for(int y= 0; y < currentBlazon.height; y++) {
+				currentBlazon.SetPixel(x, y, Tincture.ClosestTincture(currentBlazon.GetPixel(x, y)));
+			}
+		}
+
+
 		currentBlazon.Apply();
 
 		////Synchronously
