@@ -25,7 +25,7 @@ public partial class BlazonTest : MonoBehaviour {
     public Texture2D shieldTemplate;
     private Blazon testBlazon;
 
-    private Blazon systematicBlazon;
+    public Blazon systematicBlazon;
 
     private bool complexFields, ruleOfTincture, ordinary;
     private int numberOfElements = 1;

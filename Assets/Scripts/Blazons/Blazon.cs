@@ -8,6 +8,7 @@ using static Charge;
 using static Ordinary;
 using TMPro;
 
+[System.Serializable]
 public class Blazon {
     public enum Point {
         Chief,
@@ -26,8 +27,8 @@ public class Blazon {
     }
 
 
-    Field field;
-    List<Element> elements;
+    public Field field;
+    public List<Element> elements;
 
     public Blazon(Field field, List<Element> elements) {
         this.field = field;
@@ -262,6 +263,28 @@ public class Blazon {
         foreach(Element elem in elements) {
             ret += ", " + elem.ToBlazonDescription();
         }
+
+        ret = ret.ToLower();
+
+        ret = ret.Replace("argent", "Argent");
+        ret = ret.Replace("or", "Or");
+        ret = ret.Replace("gules", "Gules");
+        ret = ret.Replace("sable", "Sable");
+        ret = ret.Replace("azure", "Azure");
+        ret = ret.Replace("vert", "Vert");
+        ret = ret.Replace("purpure", "Purpure");
+        
+        ret = ret.Replace("tenne", "Tenne");
+        ret = ret.Replace("sanguine", "Sanguine");
+        ret = ret.Replace("murrey", "Murrey");
+        ret = ret.Replace("carnation", "Carnation");
+        ret = ret.Replace("celeste", "Celeste");
+        ret = ret.Replace("rose", "Rose");
+        ret = ret.Replace("bleuceleste", "Bleu Celeste");
+        ret = ret.Replace("bleu-celeste", "Bleu-Celeste");
+        ret = ret.Replace("brunatre", "Brunatre");
+        ret = ret.Replace("orange", "Orange");
+        
         return ret;
     }
 
