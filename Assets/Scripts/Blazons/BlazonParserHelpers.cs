@@ -59,9 +59,9 @@ public static class BlazonParserHelpers {
         {"chevron", OrdinaryShape.Chevron },
         {"saltire", OrdinaryShape.Saltire },
         {"chief", OrdinaryShape.Chief },
-        {"bordure", OrdinaryShape.Bordure },
+        //{"bordure", OrdinaryShape.Bordure },
         {"pile", OrdinaryShape.Pile },
-        {"pall", OrdinaryShape.Pall }
+        //{"pall", OrdinaryShape.Pall }
     };
 
     public static readonly Dictionary<string, int> Numbers = new Dictionary<string, int>() {

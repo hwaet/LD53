@@ -14,6 +14,8 @@ public class Delivery : MonoBehaviour
 
 	EvaluateGui evgui;
 
+	public FeedbackMessages feedbackMessages;
+
     // Start is called before the first frame update
     void Start()
     {

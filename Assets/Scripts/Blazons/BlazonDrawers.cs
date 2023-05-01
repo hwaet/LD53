@@ -244,10 +244,10 @@ public static class BlazonDrawers  {
     public static Texture2D ApplyOrdinary(Texture2D field, OrdinaryShape shape, Color tincture, bool sinister = false) {
         switch (shape) {
             case OrdinaryShape.Chief:
-                field = DrawRect(field, new RectInt(0, field.height * 2 / 3, field.width - 1, field.height - 1), tincture);
+                field = DrawRect(field, new RectInt(0, field.height * 2 / 3, field.width, field.height), tincture);
                 return field;
             case OrdinaryShape.Fess:
-                field = DrawRect(field, new RectInt(0, field.height / 2 - field.height / 8, field.width - 1, field.height / 4), tincture);
+                field = DrawRect(field, new RectInt(0, field.height / 2 - field.height / 8, field.width, field.height / 4), tincture);
                 return field;
             case OrdinaryShape.Pale:
                 field = DrawRect(field, new RectInt(field.width / 2 - field.width / 8, 0, field.width / 4, field.height), tincture);
@@ -295,8 +295,8 @@ public static class BlazonDrawers  {
                 field = StampToTexture(field, stamp);
                 return field;
 
-            case OrdinaryShape.Pall:
-            case OrdinaryShape.Bordure:
+            //case OrdinaryShape.Pall:
+            //case OrdinaryShape.Bordure:
             default:
                 Debug.LogFormat("Haven't implemented {0} yet", shape);
                 return field;
@@ -576,9 +576,15 @@ public static class BlazonDrawers  {
     }
 
     public static Texture2D DrawLozenge(Texture2D field, RectInt rect, Color color) {
-        Color[,] stamp = field.GetColorArray();
-        stamp = DrawLozenge(stamp, rect, color);
-        field = StampToTexture(field, stamp);
+        Vector2Int left = new Vector2Int(rect.x, rect.y - rect.height / 2);
+        Vector2Int right = new Vector2Int(rect.x + rect.width, rect.y - rect.height / 2);
+        Vector2Int top = new Vector2Int(rect.x + rect.width / 2, rect.y);
+        Vector2Int bottom = new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height);
+        field = DrawLineSegment(field, left, top, color);
+        field = DrawLineSegment(field, top, right, color);
+        field = DrawLineSegment(field, right, bottom, color);
+        field = DrawLineSegment(field, bottom, left, color);
+        field = FloodFill(field, new Vector2Int(rect.x + rect.width / 2, rect.y - rect.height / 2), color, FloodFillMode.UntilTargetColor);
         return field;
     }
 

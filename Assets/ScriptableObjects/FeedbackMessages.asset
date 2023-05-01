@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e8e56f053419554e8c6e7b068f3e308, type: 3}
+  m_Name: FeedbackMessages
+  m_EditorClassIdentifier: 
+  wrongHouseReactions:
+  - Pardon? Thou thinkst this our livery? Leave at once, churl!
+  - Nay, methinks thou must be muddled in the head. Tis not our coat of arms.
+  - Fopdoodle! Thou hast delivered to altogether the wrong establishment!
+  SReactions:
+  - 'Huzzah! Such artistry, such skill! We shall sing thy praises throughout our
+    halls! '
+  - Mine eyes art captivated by the beauty of thy craft! A thousand thanks!
+  - Such skill wouldst befit the king himself! Thou art incredible in thy work!
+  AReactions:
+  - '''Tis lovely craftsmanship and skilled work. I thank thee, good painter!'
+  - Thou hast produced a fine work. I owe thee my gratitude!
+  - Yea, 'tis just as requested. Thou art strong in thy craft!
+  BReactions:
+  - A good likeness. Your efforts are to be lauded.
+  - '''Tis pleasing to behold, though mayhaps a mite rough.'
+  - Thou hast captured the essence well. The details couldst use work.
+  CReactions:
+  - '''Tis unimpressive, but will suffice.'
+  - Thou captured some aspects, yet entirely missed others.
+  - I suppose 'twill do in a pinch.
+  DReactions:
+  - Thy colors art runny and thy patterns sad. What art thou, a stampcrab?
+  - Thou must be a fool indeed to produce such a travesty out of our device.
+  - Thou shalt not stay in business for long with such dismal showings.
+  FReactions:
+  - This is a disgrace to the family's very name! Thou art a proper saddle-goose.
+  - Dost thou intend to insult with this horrid showing? For shame, thou cumberworld!
+  - What fustilugs created this? Mine dog couldst produce a better result.

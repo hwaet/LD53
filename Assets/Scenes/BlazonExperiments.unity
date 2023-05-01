@@ -285,6 +285,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bbfd207eeb9f3bb4b81613d4e110188b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  shieldTemplate: {fileID: 0}
+  testField:
+    type: 0
+    variation: 0
+    divison: 0
+    tinctures: []
+    sinister: 0
+    count: 0
+  includeOrdinary: 0
+  testOrdinary:
+    tincture: {r: 0, g: 0, b: 0, a: 0}
+    shape: 0
+    sinister: 0
+  charges:
+  - tincture: {r: 0, g: 0, b: 0, a: 0}
+    type: 0
+    shape: 0
+    point: 0
+    layout: 0
+    count: 0
 --- !u!1 &1463277784
 GameObject:
   m_ObjectHideFlags: 0

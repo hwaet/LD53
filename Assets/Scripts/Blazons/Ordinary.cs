@@ -1,6 +1,8 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using UnityEngine;
 
+[Serializable]
 public class Ordinary: Element {
     public enum OrdinaryShape {
         Cross, // cross
@@ -10,9 +12,9 @@ public class Ordinary: Element {
         Chevron, // chevron pointing up
         Saltire, // diagonal cross
         Chief, // horizontal line at outTop
-        Bordure, // border
+        //Bordure, // border            << NOT IMPLEMENTED
         Pile, // triangle pointing down
-        Pall, // Y shape
+        //Pall, // Y shape              << NOT IMPLEMENTED
     }
 
     public OrdinaryShape shape;

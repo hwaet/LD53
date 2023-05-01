@@ -1,7 +1,9 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using UnityEngine;
 using static BlazonParserHelpers;
 
+[Serializable]
 public class Charge : Element {
     public enum ChargeType {
         Single,
