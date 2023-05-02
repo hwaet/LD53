@@ -25,7 +25,7 @@ public class BlazonGenerator : MonoBehaviour
 
     [ContextMenu("Generate")]
     // Update is called once per frame
-    void Generate()
+    public void Generate()
     {
         Blazon newBlazon;
 		newBlazon = Blazon.Parse(blazonDescription);
