@@ -45,4 +45,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentBlazon: {fileID: 0}
+  layerMask:
+    serializedVersion: 2
+    m_Bits: 8
   targetBlazonGenerator: {fileID: 0}
+  feedbackMessages: {fileID: 0}
