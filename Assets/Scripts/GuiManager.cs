@@ -36,4 +36,14 @@ public class GuiManager : MonoBehaviour
 		canvasGroup.blocksRaycasts = true;
 
 	}
+
+	[ContextMenu("Toggle")]
+	public void ToggleGUI()
+	{
+        if (canvasGroup.interactable==true) CloseGUI();
+        else OpenGUI();
+
+
+
+	}
 }

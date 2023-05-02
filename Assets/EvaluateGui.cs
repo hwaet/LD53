@@ -16,7 +16,6 @@ public class EvaluateGui : MonoBehaviour
     void OnValidate()
     {
         guiManager = GetComponent<GuiManager>();
-
 	}
 
     // Update is called once per frame

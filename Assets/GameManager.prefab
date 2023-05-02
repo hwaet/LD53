@@ -735,6 +735,18 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+      - m_Target: {fileID: 3299484172685003593}
+        m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
+        m_MethodName: IncreaseLevel
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &3299484172604315014
 GameObject:
   m_ObjectHideFlags: 0
@@ -920,9 +932,23 @@ MonoBehaviour:
   GUI_Intro: {fileID: 145289393}
   GUI_Dialog: {fileID: 3299484174150890440}
   GUI_Blazon: {fileID: 8432217441113476466}
+  GUI_BlazonOrder: {fileID: 0}
   gameDialogue: {fileID: 7470162272888219102}
   gameIntro: {fileID: 105605502}
   titleCam: {fileID: 0}
+  bz1: {fileID: 0}
+  bz2: {fileID: 0}
+  bz3: {fileID: 0}
+  bz4: {fileID: 0}
+  bz5: {fileID: 0}
+  responseText: {fileID: 0}
+  feedback: {fileID: 11400000, guid: d45950e9b04a2324ea003a71c55ef99a, type: 2}
+  tierS: 0.9
+  tierA: 0.8
+  tierB: 0.7
+  tierC: 0.6
+  tierD: 0.5
+  tierF: 0.4
 --- !u!1 &3299484173186464151
 GameObject:
   m_ObjectHideFlags: 0

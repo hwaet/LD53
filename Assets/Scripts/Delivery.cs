@@ -13,6 +13,7 @@ public class Delivery : MonoBehaviour
     public BlazonGenerator targetBlazonGenerator;
 
 	EvaluateGui evgui;
+	GameManager gm;
 
 	public FeedbackMessages feedbackMessages;
 
@@ -22,7 +23,7 @@ public class Delivery : MonoBehaviour
         paintbrush = FindObjectOfType<Paintbrush>();
         currentBlazon = new Texture2D(256,256,TextureFormat.RGBA32,false);
 		evgui = FindObjectOfType<EvaluateGui>();
-
+		gm = FindObjectOfType<GameManager>();
 	}
 
     // Update is called once per frame
@@ -45,9 +46,12 @@ public class Delivery : MonoBehaviour
 		if (hit==false) return;
 
 		targetBlazonGenerator = hitInfo.collider.gameObject.GetComponent<BlazonGenerator>();
-		float score = TestAccuracy();
+
+		if (targetBlazonGenerator == null) return;
+		float score = TestAccuracy(targetBlazonGenerator);
 
 		evgui.Evaluate(currentBlazon, targetBlazonGenerator.blazonTexture, score.ToString());
+		gm.CheckScore(targetBlazonGenerator, score);
 	}
 
 	[ContextMenu("copy blazon")]
@@ -84,9 +88,10 @@ public class Delivery : MonoBehaviour
 	}
 
     [ContextMenu("Test Accuracy")]
-    public float TestAccuracy()
+    public float TestAccuracy(BlazonGenerator targetBlazonGenerator)
     {
-        
+		
+
 		float score = currentBlazon.MatchPercentage(targetBlazonGenerator.blazonTexture);
 
 		Debug.Log(score);
