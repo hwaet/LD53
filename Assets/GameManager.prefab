@@ -735,18 +735,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 3299484172685003593}
-        m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
-        m_MethodName: IncreaseLevel
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!1 &3299484172604315014
 GameObject:
   m_ObjectHideFlags: 0
@@ -928,7 +916,34 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 96cb95070a1cbd74fb72ef0557591238, type: 2}
   - {fileID: 11400000, guid: c67def474bae26644b02e73bdeaba2c4, type: 2}
   - {fileID: 11400000, guid: c67f1e5dafdc66c44acb9ba9dc05419a, type: 2}
+  - {fileID: 11400000, guid: 1b22b9db38b72d44a834db36c3ed0e58, type: 2}
+  - {fileID: 11400000, guid: 026d42a7a0f58eb4b9be0755762dda69, type: 2}
+  - {fileID: 11400000, guid: 6d53c1e26d191b3448b490b547ccb4bb, type: 2}
+  - {fileID: 11400000, guid: 931e5316dc56aea4d84648fb9f0ec923, type: 2}
+  - {fileID: 11400000, guid: 2855dd4970e14f24fac839eb9774eb35, type: 2}
+  - {fileID: 11400000, guid: 107176e3b424bb24692893eaa40327cc, type: 2}
+  - {fileID: 11400000, guid: 235cbadfe6babf94e82b058634d905d9, type: 2}
+  - {fileID: 11400000, guid: 24e0e3ad74253744982171f954d910d7, type: 2}
+  - {fileID: 11400000, guid: c317d7b0a5e13bb47906540ff05cfa2f, type: 2}
+  - {fileID: 11400000, guid: f4b6992a527dd444ea2496a2d63164b5, type: 2}
+  - {fileID: 11400000, guid: 4d80593c6e5593b468fdb0d3c7867b38, type: 2}
+  - {fileID: 11400000, guid: a0597158a8f09b343877f16afe3776f4, type: 2}
+  - {fileID: 11400000, guid: 672341507e1752146921a619a8800f8c, type: 2}
+  - {fileID: 11400000, guid: 485d0c9bce295d44fabcd5911d2e4714, type: 2}
+  - {fileID: 11400000, guid: 2a25b3156d126634292e28ce749eb139, type: 2}
+  - {fileID: 11400000, guid: cba2fb8d7e6cd9f45a44c4f2db698a92, type: 2}
+  - {fileID: 11400000, guid: 9ad4b597e5a4a5445b5d819a099e9109, type: 2}
+  - {fileID: 11400000, guid: db6ad0f25b0118e48897430dd4febbd1, type: 2}
+  - {fileID: 11400000, guid: 49133e52527591444b25ee38ada7eda3, type: 2}
+  - {fileID: 11400000, guid: d0485d3101534c148ad228b399ee30bd, type: 2}
+  - {fileID: 11400000, guid: eda20243ec1a8254db80cb0341000ef4, type: 2}
   currentLevel: 0
+  StierVictories: 0
+  AtierVictories: 0
+  BtierVictories: 0
+  CtierVictories: 0
+  DtierVictories: 0
+  failures: 0
   GUI_Intro: {fileID: 145289393}
   GUI_Dialog: {fileID: 3299484174150890440}
   GUI_Blazon: {fileID: 8432217441113476466}
@@ -936,6 +951,7 @@ MonoBehaviour:
   gameDialogue: {fileID: 7470162272888219102}
   gameIntro: {fileID: 105605502}
   titleCam: {fileID: 0}
+  workshopCam: {fileID: 0}
   bz1: {fileID: 0}
   bz2: {fileID: 0}
   bz3: {fileID: 0}
@@ -943,12 +959,22 @@ MonoBehaviour:
   bz5: {fileID: 0}
   responseText: {fileID: 0}
   feedback: {fileID: 11400000, guid: d45950e9b04a2324ea003a71c55ef99a, type: 2}
+  SuccessButton: {fileID: 0}
+  FailButton: {fileID: 0}
   tierS: 0.9
   tierA: 0.8
   tierB: 0.7
   tierC: 0.6
   tierD: 0.5
-  tierF: 0.4
+  tierF: 0
+  blazons: {fileID: 11400000, guid: 2231eb1bbef7b1c4c8e98203d0a27084, type: 2}
+  currentLevelDisplay: {fileID: 0}
+  s_display: {fileID: 0}
+  a_display: {fileID: 0}
+  b_display: {fileID: 0}
+  c_display: {fileID: 0}
+  d_display: {fileID: 0}
+  f_display: {fileID: 0}
 --- !u!1 &3299484173186464151
 GameObject:
   m_ObjectHideFlags: 0

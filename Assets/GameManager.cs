@@ -13,6 +13,13 @@ public class GameManager : MonoBehaviour
     public List<LevelSpecification> levels;
 
     public int currentLevel = 0;
+	public int StierVictories = 0;
+	public int AtierVictories = 0;
+	public int BtierVictories = 0;
+	public int CtierVictories = 0;
+	public int DtierVictories = 0;
+	public int failures = 0;
+
 
 	public Text GUI_Intro;
 	public Text GUI_Dialog;
@@ -47,6 +54,14 @@ public class GameManager : MonoBehaviour
 
 	public Blazons blazons;
 
+	public Text currentLevelDisplay;
+	public Text s_display;
+	public Text a_display;
+	public Text b_display;
+	public Text c_display;
+	public Text d_display;
+	public Text f_display;
+
 	// Start is called before the first frame update
 	void Start()
     {
@@ -56,8 +71,14 @@ public class GameManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
-    }
+		s_display.text = StierVictories.ToString();
+		a_display.text = AtierVictories.ToString();
+		b_display.text = BtierVictories.ToString();
+		c_display.text = CtierVictories.ToString();
+		d_display.text = DtierVictories.ToString();
+		f_display.text = failures.ToString();
+		currentLevelDisplay.text = currentLevel.ToString();
+	}
 
     public void IncreaseLevel()
     {
@@ -66,7 +87,14 @@ public class GameManager : MonoBehaviour
 
 	}
 
-    public string GetCurrentBlazon()
+	public void DecreaseLevel()
+	{
+		currentLevel--;
+		if (currentLevel < 4) currentLevel = levels.Count;
+
+	}
+
+	public string GetCurrentBlazon()
     {
 		if (levels[currentLevel].targetBlazon == "")
 		{
@@ -202,6 +230,7 @@ public class GameManager : MonoBehaviour
 			int id = Random.Range(0, feedback.SReactions.Count);
 			responseText.text = feedback.SReactions[id];
 			DeliverySuccess(true);
+			StierVictories++;
 			return;
 		}
 		else if (score > tierA)
@@ -209,6 +238,7 @@ public class GameManager : MonoBehaviour
 			int id = Random.Range(0, feedback.AReactions.Count);
 			responseText.text = feedback.AReactions[id];
 			DeliverySuccess(true);
+			AtierVictories++;
 			return;
 		}
 		else if (score > tierB)
@@ -216,6 +246,7 @@ public class GameManager : MonoBehaviour
 			int id = Random.Range(0, feedback.BReactions.Count);
 			responseText.text = feedback.BReactions[id];
 			DeliverySuccess(true);
+			BtierVictories++;
 			return;
 		}
 		else if (score > tierC)
@@ -223,6 +254,7 @@ public class GameManager : MonoBehaviour
 			int id = Random.Range(0, feedback.CReactions.Count);
 			responseText.text = feedback.CReactions[id];
 			DeliverySuccess(true);
+			CtierVictories++;
 			return;
 		}
 		else if(score > tierD)
@@ -230,6 +262,7 @@ public class GameManager : MonoBehaviour
 			int id = Random.Range(0, feedback.DReactions.Count);
 			responseText.text = feedback.DReactions[id];
 			DeliverySuccess(true);
+			DtierVictories++;
 			return;
 		}
 		else
@@ -237,6 +270,7 @@ public class GameManager : MonoBehaviour
 			int id = Random.Range(0, feedback.FReactions.Count);
 			responseText.text = feedback.FReactions[id];
 			DeliverySuccess(true);
+			failures++;
 			return;
 		}
 	}
@@ -267,4 +301,9 @@ public class GameManager : MonoBehaviour
 	{
 		workshopCam.enabled = true;
 	}
+
+	//	public void TriggerDialog()
+	//	{
+	//		StartCoroutine(DelayDialog());
+	//	}
 }
