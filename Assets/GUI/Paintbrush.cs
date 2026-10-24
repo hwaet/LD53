@@ -75,7 +75,7 @@ public class Paintbrush : MonoBehaviour
 		// draw brushtexture
 		Rect newDrawing = new Rect(posX, posY, brushTexture.width*brushSize, brushTexture.height * brushSize);
 		Rect sourceRect = new Rect(0, 0, 1, 1);
-		Graphics.DrawTexture(newDrawing, brushTexture, sourceRect, 0, 0, 0, 0, brushColor);
+		Graphics.DrawTexture(newDrawing, brushTexture, sourceRect, 0, 0, 0, 0, brushColor.linear * 0.5f);
 
 		GL.PopMatrix();
 		RenderTexture.active = null;// turn off rendertexture
