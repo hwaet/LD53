@@ -636,29 +636,42 @@ public static class BlazonDrawers  {
         return field;
     }
 
+    // Rotates the pixels of the texture about its centre, counter clockwise for positive angles.
+    // Corners that rotate in from outside the texture become Color.clear. To rotate just one shape, draw it into a
+    // blank stamp (GetStampTemplate), RotateStamp that and StampToTexture it instead.
     public static Texture2D RotateTexture(Texture2D field, float angle) {
-        Color[,] stamp = field.GetStampTemplate();
-        stamp = RotateStamp(stamp, angle);
-        return StampToTexture(field, stamp);
+        Color[,] rotated = RotateStamp(field.GetColorArray(), angle);
+        for (int x = 0; x < field.width; x++) {
+            for (int y = 0; y < field.height; y++) {
+                field.SetPixel(x, y, rotated[x, y]);
+            }
+        }
+        return field;
     }
 
-    private static Color[,] RotateStamp(Color[,] stamp, float angle) {
-        Color[,] ret = new Color[stamp.GetLength(0), stamp.GetLength(1)];
-        for(int x = 0; x < stamp.GetLength(0); x++) {
-            for(int y = 0; y < stamp.GetLength(1); y++) {
-                var ang = angle * Mathf.Deg2Rad;
-                var x1 = x - stamp.GetLength(0) / 2;
-                var y1 = y - stamp.GetLength(1) / 2;
-                var x2 = (int)(Mathf.Cos(ang) * (x1) - Mathf.Sin(ang) * (y1));
-                var y2 = (int)(Mathf.Sin(ang) * (x1) + Mathf.Cos(ang) * (y1));
+    // Rotates a stamp about its centre, counter clockwise for positive angles. Pixels with nothing behind them are Color.clear.
+    // Works backwards from each destination pixel to the source pixel it came from, so the result has no holes at any angle.
+    public static Color[,] RotateStamp(Color[,] stamp, float angle) {
+        int width = stamp.GetLength(0);
+        int height = stamp.GetLength(1);
+        Color[,] ret = new Color[width, height];
 
-                var x3 = x2 + stamp.GetLength(0) / 2;
-                var y3 = y2 + stamp.GetLength(1) / 2;
+        float ang = angle * Mathf.Deg2Rad;
+        float cos = Mathf.Cos(ang);
+        float sin = Mathf.Sin(ang);
+        float cx = width / 2f;
+        float cy = height / 2f;
 
-                //Debug.LogFormat("({0},{1}) -> ({2},{3})", x, y, x2, y2);
-                if(x3 >= 0 && x3 < stamp.GetLength(0) && y3 >= 0 && y3 < stamp.GetLength(1)) {
-                    //Debug.Log("Writing to Stamp!");
-                    ret[x3, y3] = stamp[x, y];
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                // centre of the destination pixel relative to the middle, rotated back by the angle
+                float dx = x + 0.5f - cx;
+                float dy = y + 0.5f - cy;
+                int sx = Mathf.FloorToInt(cos * dx + sin * dy + cx);
+                int sy = Mathf.FloorToInt(-sin * dx + cos * dy + cy);
+
+                if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+                    ret[x, y] = stamp[sx, sy];
                 }
             }
         }
