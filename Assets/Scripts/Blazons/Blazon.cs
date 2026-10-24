@@ -288,12 +288,49 @@ public class Blazon {
         return ret;
     }
 
-    public static Blazon RandomBlazon(bool complexfields, bool ruleOfTincture, bool ordinary, int charges) {
+    // Warnings about blazons that parse fine but contain elements that can't be seen.
+    // These are warnings, not errors: an element sharing a tincture with the field is legitimate when it is
+    // countercharged, which isn't modelled yet. Once it is, exempt those elements from the field check below.
+    public List<string> Validate() {
+        List<string> warnings = new List<string>();
+
+        for (int i = 0; i < elements.Count; i++) {
+            Element elem = elements[i];
+            string what = elem.ToBlazonDescription();
+            string name = TinctureName(elem.tincture);
+
+            if (System.Array.Exists(field.tinctures, t => t == elem.tincture)) {
+                if (field.type == FieldTypes.Simple) {
+                    warnings.Add("\"" + what + "\" is the same colour as the field (" + name + ") so it will be invisible.");
+                }
+                else {
+                    warnings.Add("\"" + what + "\" shares " + name + " with the field, so it will be partly or fully hidden unless it is countercharged.");
+                }
+            }
+
+            for (int j = 0; j < i; j++) {
+                if (elements[j].tincture == elem.tincture) {
+                    warnings.Add("\"" + what + "\" is the same colour (" + name + ") as the earlier \"" + elements[j].ToBlazonDescription() + "\" so they may blend together.");
+                    break;
+                }
+            }
+        }
+
+        return warnings;
+    }
+
+    private static string TinctureName(Color tincture) {
+        string name = Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+        return name ?? tincture.ToString();
+    }
+
+    // avoidFieldColorReuse: ordinaries and charges may not use any of the field's tinctures.
+    // avoidElementColorReuse: an ordinary or charge may not reuse the tincture of an earlier element (the field is not considered).
+    // If the rules can't be satisfied (pool exhausted) the element rule is relaxed first, then the field rule, with a warning logged.
+    public static Blazon RandomBlazon(bool complexfields, bool ruleOfTincture, bool ordinary, int charges, bool avoidFieldColorReuse = true, bool avoidElementColorReuse = true) {
         Field field = null;
         List<Color> colours = new List<Color>();
         List<Color> metals = new List<Color>();
-
-        HashSet<Color> used = new HashSet<Color>();
 
         if (ruleOfTincture) {
             colours = new List<Color>(Tincture.Colours.Values);
@@ -373,35 +410,47 @@ public class Blazon {
             }
         }
 
-        if (ruleOfTincture) {
-            colours = new List<Color>(Tincture.Colours.Values);
-            metals = new List<Color>(Tincture.Metals.Values);
-        }
-        else {
-            colours = new List<Color>(Tincture.Tinctures.Values);
-        }
-
-
-
         List<Element> elements = new List<Element>();
+        HashSet<Color> usedByElements = new HashSet<Color>();
+
+        List<Color> Candidates(IEnumerable<Color> source, bool skipFieldColors, bool skipElementColors) {
+            return source.Where(c => !(skipFieldColors && System.Array.Exists(field.tinctures, t => t == c))
+                                  && !(skipElementColors && usedByElements.Contains(c))).ToList();
+        }
+
+        // Picks a tincture for an ordinary or charge. metalChance only matters under the rule of tincture.
+        Color PickTincture(float metalChance) {
+            IEnumerable<Color> metalSource = ruleOfTincture ? Tincture.Metals.Values : new Color[0];
+            IEnumerable<Color> colourSource = ruleOfTincture ? Tincture.Colours.Values : Tincture.Tinctures.Values;
+
+            // strictest first; relax the element rule, then the field rule, if the pool runs dry
+            for (int relax = 0; relax < 3; relax++) {
+                bool skipFieldColors = avoidFieldColorReuse && relax < 2;
+                bool skipElementColors = avoidElementColorReuse && relax < 1;
+                List<Color> metalPool = Candidates(metalSource, skipFieldColors, skipElementColors);
+                List<Color> colourPool = Candidates(colourSource, skipFieldColors, skipElementColors);
+                if (metalPool.Count + colourPool.Count == 0) {
+                    continue;
+                }
+
+                if ((avoidFieldColorReuse && relax >= 2) || (avoidElementColorReuse && relax >= 1)) {
+                    Debug.LogWarning("RandomBlazon: ran out of tinctures that satisfy the color reuse rules, relaxing them.");
+                }
+
+                bool useMetal = metalPool.Count > 0 && (colourPool.Count == 0 || Random.value < metalChance);
+                List<Color> pool = useMetal ? metalPool : colourPool;
+                Color picked = pool[Random.Range(0, pool.Count)];
+                usedByElements.Add(picked);
+                return picked;
+            }
+
+            // nothing in the palette at all, can't happen with the current tinctures
+            return Tincture.Tinctures.Values.First();
+        }
 
         if (ordinary) {
             var ordinaryType = OrdinaryShapes.Values.ElementAt(Random.Range(0, OrdinaryShapes.Values.Count));
-            Color ordinaryTincture;
-            if (ruleOfTincture) {
-                if (Random.value > .5f) {
-                    ordinaryTincture = metals[Random.Range(0, metals.Count)];
-                    metals.Remove(ordinaryTincture);
-                }
-                else {
-                    ordinaryTincture = colours[Random.Range(0, colours.Count)];
-                    colours.Remove(ordinaryTincture);
-                }
-            }
-            else {
-                ordinaryTincture = colours[Random.Range(0, colours.Count)];
-                colours.Remove(ordinaryTincture);
-            }
+            Color ordinaryTincture = PickTincture(.5f);
 
             if (ordinaryType == OrdinaryShape.Bend) {
                 elements.Add(new Ordinary(ordinaryType, ordinaryTincture, Random.value > .5f));
@@ -412,30 +461,7 @@ public class Blazon {
         }
 
         for(int i = 0; i < charges; i++) {
-            Color tincture;
-            if (ruleOfTincture) {
-                if(metals.Count == 0) {
-                    metals = new List<Color>(Tincture.Metals.Values);
-                }
-                if(colours.Count == 0) {
-                    colours = new List<Color>(Tincture.Colours.Values);
-                }
-                if(Random.value > .8f) {
-                    tincture = metals[Random.Range(0, metals.Count)];
-                    metals.Remove(tincture);
-                }
-                else {
-                    tincture = colours[Random.Range(0, colours.Count)];
-                    colours.Remove(tincture);
-                }
-            }
-            else {
-                if(colours.Count == 0) {
-                    colours = new List<Color>(Tincture.Tinctures.Values);
-                }
-                tincture = colours[Random.Range(0, colours.Count)];
-                colours.Remove(tincture);
-            }
+            Color tincture = PickTincture(.2f);
 
             var fate = Random.Range(0f, 1f);
             var shape = ChargeShapes.Values.ElementAt(Random.Range(0, ChargeShapes.Values.Count));

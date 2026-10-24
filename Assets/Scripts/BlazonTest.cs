@@ -20,6 +20,8 @@ public partial class BlazonTest : MonoBehaviour {
 
     private string blazonPrompt = "Azure, a bend or";
     string parseError = string.Empty;
+    private List<string> warnings = new List<string>();
+    private GUIStyle warningStyle;
 
     private Texture2D testTexture = null;
     public Texture2D shieldTemplate;
@@ -28,6 +30,7 @@ public partial class BlazonTest : MonoBehaviour {
     public Blazon systematicBlazon;
 
     private bool complexFields, ruleOfTincture, ordinary;
+    private bool avoidFieldColorReuse = true, avoidElementColorReuse = true;
     private int numberOfElements = 1;
 
 
@@ -40,6 +43,8 @@ public partial class BlazonTest : MonoBehaviour {
 
     [Header("Systematic Test Charge")]
     public Charge[] charges;
+
+    private Vector2 scrollPos = Vector2.zero;
 
     // Start is called before the first frame update
     void Start() {
@@ -57,6 +62,13 @@ public partial class BlazonTest : MonoBehaviour {
 
 
 
+    private static GUIStyle MakeWarningStyle() {
+        GUIStyle style = new GUIStyle(GUI.skin.label);
+        style.normal.textColor = new Color(1f, 0.85f, 0.3f);
+        style.wordWrap = true;
+        return style;
+    }
+
     private void OnGUI() {
         GUILayout.BeginArea(new Rect(0, 0, Screen.width, Screen.height));
         GUILayout.BeginVertical();
@@ -65,8 +77,10 @@ public partial class BlazonTest : MonoBehaviour {
         blazonPrompt = GUILayout.TextField(blazonPrompt);
 
         parseError = "Blazon Valid!";
+        warnings.Clear();
         try {
             testBlazon = Blazon.Parse(blazonPrompt);
+            warnings = testBlazon.Validate();
         }
         catch (Exception e) {
             parseError = e.Message;
@@ -87,7 +101,7 @@ public partial class BlazonTest : MonoBehaviour {
 
         GUILayout.EndHorizontal();
 
-        GUILayout.Label(parseError);
+       
         GUILayout.BeginHorizontal();
 
         GUILayout.Box(testTexture);
@@ -97,6 +111,8 @@ public partial class BlazonTest : MonoBehaviour {
         complexFields = GUILayout.Toggle(complexFields, "Complex Fields");
         ruleOfTincture = GUILayout.Toggle(ruleOfTincture, "Rule of Tincture");
         ordinary = GUILayout.Toggle(ordinary, "Add Ordinary");
+        avoidFieldColorReuse = GUILayout.Toggle(avoidFieldColorReuse, "Avoid Field Color Reuse");
+        avoidElementColorReuse = GUILayout.Toggle(avoidElementColorReuse, "Avoid Element Color Reuse");
         GUILayout.BeginHorizontal();
         GUILayout.Label("Number of Charges:");
         GUI.enabled = false;
@@ -106,7 +122,7 @@ public partial class BlazonTest : MonoBehaviour {
         GUILayout.EndHorizontal();
         
         if(GUILayout.Button("Generate Random Blazon")) {
-            testBlazon = Blazon.RandomBlazon(complexFields, ruleOfTincture, ordinary, numberOfElements);
+            testBlazon = Blazon.RandomBlazon(complexFields, ruleOfTincture, ordinary, numberOfElements, avoidFieldColorReuse, avoidElementColorReuse);
             blazonPrompt = testBlazon.ToBlazonDescription();
             testTexture = testBlazon.GenerateTexture(256);
         }
@@ -199,6 +215,12 @@ public partial class BlazonTest : MonoBehaviour {
 
         GUILayout.EndHorizontal();
 
+        scrollPos = GUILayout.BeginScrollView(scrollPos);
+        GUILayout.Label(parseError);
+        foreach (string warning in warnings) {
+            GUILayout.Label("Warning: " + warning, warningStyle ?? (warningStyle = MakeWarningStyle()));
+        }
+        GUILayout.EndScrollView();
         GUILayout.EndVertical();
         GUILayout.EndArea();
     }
