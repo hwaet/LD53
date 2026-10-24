@@ -42,6 +42,8 @@ public class Field {
     public Color[] tinctures;
     public bool sinister;
     public int count;
+    // How the division is drawn, a straight line unless the blazon names one. Only used by divided fields.
+    public Line line;
 
     public Field(Color tincture) {
         type = FieldTypes.Simple;
@@ -57,11 +59,12 @@ public class Field {
         this.count = count;
     }
 
-    public Field(Division divsion, Color[] tinctures, bool sinister) {
+    public Field(Division divsion, Color[] tinctures, bool sinister, Line line = default) {
         type = FieldTypes.Divided;
         this.divison = divsion;
         this.tinctures = tinctures;
         this.sinister = sinister;
+        this.line = line;
         count = 0;
     }
 }

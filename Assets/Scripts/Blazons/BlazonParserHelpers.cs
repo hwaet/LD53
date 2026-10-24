@@ -64,6 +64,20 @@ public static class BlazonParserHelpers {
         {"pall", OrdinaryShape.Pall }
     };
 
+    // The first name for each style is the one used to describe a blazon.
+    public static readonly Dictionary<string, LineStyle> LineStyles = new Dictionary<string, LineStyle>() {
+        {"wavy", LineStyle.Wavy },
+        {"undy", LineStyle.Wavy },
+        {"engrailed", LineStyle.Engrailed },
+        {"invected", LineStyle.Invected },
+        {"embattled", LineStyle.Embattled },
+        {"indented", LineStyle.Indented },
+        {"dancetty", LineStyle.Dancetty },
+        {"nebuly", LineStyle.Nebuly },
+        {"raguly", LineStyle.Raguly },
+        {"dovetailed", LineStyle.Dovetailed }
+    };
+
     public static readonly Dictionary<string, int> Numbers = new Dictionary<string, int>() {
         {"one", 1 },
         {"two", 2},

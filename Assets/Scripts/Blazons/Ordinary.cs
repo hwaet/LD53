@@ -19,6 +19,8 @@ public class Ordinary: Element {
 
     public OrdinaryShape shape;
     public bool sinister;
+    // How the edges of the ordinary are drawn, a straight line unless the blazon names one.
+    public Line line;
 
     public Ordinary(OrdinaryShape shape) {
         this.shape = shape;
@@ -26,16 +28,20 @@ public class Ordinary: Element {
         sinister = false;
     }
 
-    public Ordinary(OrdinaryShape shape, Color tincture, bool sinister=false) {
+    public Ordinary(OrdinaryShape shape, Color tincture, bool sinister=false, Line line = default) {
         this.shape = shape;
         this.tincture = tincture;
         this.sinister = sinister;
+        this.line = line;
     }
 
     public override string ToBlazonDescription() {
         string ret = "a " + shape.ToString();
         if (sinister) {
             ret += " sinister";
+        }
+        if (!line.IsStraight) {
+            ret += " " + line.ToBlazonDescription();
         }
         ret += " " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
         return ret;

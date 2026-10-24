@@ -45,8 +45,8 @@ public class Blazon {
         elements = new List<Element>();
     }
 
-    public Blazon(Division divsion, Color[] tinctures, bool sinister= false) {
-        field = new Field(divsion, tinctures, sinister);
+    public Blazon(Division divsion, Color[] tinctures, bool sinister= false, Line line = default) {
+        field = new Field(divsion, tinctures, sinister, line);
         elements = new List<Element>();
     }
        
@@ -95,13 +95,18 @@ public class Blazon {
             else if (OrdinaryShapes.ContainsKey(elementProperties[1])) {
                 //we have a single ordinary
                 Ordinary ord = new Ordinary(OrdinaryShapes[elementProperties[1]]);
-                if (elementProperties[2] == "sinister") {
+                int next = 2;
+                if (elementProperties[next] == "sinister") {
                     ord.sinister = true;
-                    ord.tincture = Tincture.Tinctures[elementProperties[3]];
+                    next++;
                 }
-                else {
-                    ord.tincture = Tincture.Tinctures[elementProperties[2]];
+                Line parsedLine;
+                int used;
+                if (Line.TryParse(elementProperties, next, out parsedLine, out used)) {
+                    ord.line = parsedLine;
+                    next += used;
                 }
+                ord.tincture = Tincture.Tinctures[elementProperties[next]];
                 elements.Add(ord);
             }
             else {
@@ -187,8 +192,16 @@ public class Blazon {
         else if (DivisionCues.Contains(field[0])){
             string divString = string.Empty;
             List<Color> tinctures = new List<Color>();
+            Line divisionLine = default;
 
             for(int i =0; i< field.Length; i++) {
+                Line parsedLine;
+                int used;
+                if (Line.TryParse(field, i, out parsedLine, out used)) {
+                    divisionLine = parsedLine;
+                    i += used - 1;
+                    continue;
+                }
                 if (Divisions.ContainsKey(field[i])) {
                     divString = field[i];
                 }
@@ -205,7 +218,7 @@ public class Blazon {
             if (tinctures.Count < 2) {
                 throw new BlazonError("A Divsion must be composed of at least 2 tinctures.");
             }
-            blazon =  new Blazon(Divisions[divString], tinctures.ToArray(), sinister);
+            blazon =  new Blazon(Divisions[divString], tinctures.ToArray(), sinister, divisionLine);
         }
         else {
             throw new BlazonError("Blazon does not have a reconizable field descriptor.");
@@ -250,6 +263,9 @@ public class Blazon {
                 if(field.divison == Division.Bend && field.sinister) {
                     ret += " sinister";
                 }
+                if (!field.line.IsStraight) {
+                    ret += " " + field.line.ToBlazonDescription();
+                }
 
                 for (int i = 0; i < field.tinctures.Length; i++) {
                     if (i == field.tinctures.Length - 1)
@@ -293,6 +309,17 @@ public class Blazon {
     // countercharged, which isn't modelled yet. Once it is, exempt those elements from the field check below.
     public List<string> Validate() {
         List<string> warnings = new List<string>();
+
+        // Lines are parsed and described but no drawer uses them yet. Remove these warnings once they do.
+        if (field.type == FieldTypes.Divided && !field.line.IsStraight) {
+            warnings.Add("The " + field.line.ToBlazonDescription() + " line of the division isn't drawn yet, it will be straight.");
+        }
+        foreach (Element element in elements) {
+            Ordinary lined = element as Ordinary;
+            if (lined != null && !lined.line.IsStraight) {
+                warnings.Add("The " + lined.line.ToBlazonDescription() + " line of \"" + lined.ToBlazonDescription() + "\" isn't drawn yet, it will be straight.");
+            }
+        }
 
         for (int i = 0; i < elements.Count; i++) {
             Element elem = elements[i];
