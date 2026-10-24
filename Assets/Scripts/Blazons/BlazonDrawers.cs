@@ -791,6 +791,7 @@ public static class BlazonDrawers  {
     }
 
     public static Texture2D FloodFill(Texture2D field, Vector2Int seed, Color color, FloodFillMode fillMode) {
+        color = (Color32)color;   // compare against what the 8-bit texture actually stores
         Color seedColor = field.GetPixel(seed.x, seed.y);
         if (fillMode == FloodFillMode.AllSeedColor && seedColor == color) {
             return field;
@@ -802,6 +803,7 @@ public static class BlazonDrawers  {
             field.SetPixel(node.x, node.y, color);
 
             if(pixelStack.Count > field.width * field.height) {
+                Debug.LogWarningFormat("FloodFill aborted: stack exceeded {0} entries (seed {1}, color {2}, mode {3}). The fill is probably not terminating.", field.width * field.height, seed, color, fillMode);
                 return field;
             }
 
