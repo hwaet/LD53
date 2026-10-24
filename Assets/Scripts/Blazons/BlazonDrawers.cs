@@ -728,25 +728,137 @@ public static class BlazonDrawers  {
         }
     }
 
+    // Where the middle of a peak sits within a cycle of each wave.
+    public static float CrestPhase(WaveShape shape) {
+        return shape == WaveShape.Scallop ? 0.5f : 0.25f;
+    }
+
+    // One period of a line's outline, for shapes that can overhang (nebuly, dovetailed, raguly) and so can't be written as
+    // "across = f(along)". The points run along the period as (cycles, height) with height in units of the amplitude, up is the
+    // left of the line. The last point must be the first point plus one cycle, so periods join up. The filled region is everything
+    // below the curve; a point is below it if a ray straight up from it crosses the outline an odd number of times.
+    public class LineProfile {
+        readonly Vector2[] points;
+        readonly float minCycles, maxCycles, minHeight, maxHeight;
+        public readonly float crestPhase;   // where the middle of a peak sits within a cycle
+
+        public LineProfile(Vector2[] points, float crestPhase) {
+            this.points = points;
+            this.crestPhase = crestPhase;
+            minCycles = maxCycles = points[0].x;
+            minHeight = maxHeight = points[0].y;
+            foreach (Vector2 p in points) {
+                minCycles = Mathf.Min(minCycles, p.x);
+                maxCycles = Mathf.Max(maxCycles, p.x);
+                minHeight = Mathf.Min(minHeight, p.y);
+                maxHeight = Mathf.Max(maxHeight, p.y);
+            }
+        }
+
+        public bool IsBelow(float cycles, float height) {
+            if (height > maxHeight) {
+                return false;
+            }
+            if (height < minHeight) {
+                return true;
+            }
+
+            float u = Mathf.Repeat(cycles, 1f);
+            int crossings = 0;
+            // copies of the period whose points can be at u
+            int first = Mathf.FloorToInt(u - maxCycles);
+            int last = Mathf.CeilToInt(u - minCycles);
+            for (int k = first; k <= last; k++) {
+                float uk = u - k;
+                for (int i = 0; i < points.Length - 1; i++) {
+                    Vector2 a = points[i];
+                    Vector2 b = points[i + 1];
+                    if ((a.x <= uk) != (b.x <= uk)) {
+                        float t = (uk - a.x) / (b.x - a.x);
+                        if (a.y + t * (b.y - a.y) > height) {
+                            crossings++;
+                        }
+                    }
+                }
+            }
+            return (crossings & 1) == 1;
+        }
+
+        // Battlements: `duty` of each cycle is a merlon, the rest is a gap.
+        public static LineProfile Embattled(float duty = 0.5f) {
+            return new LineProfile(new[] { new Vector2(0, 1), new Vector2(duty, 1), new Vector2(duty, -1), new Vector2(1, -1), new Vector2(1, 1) }, duty / 2f);
+        }
+
+        // Embattled with the sides of the merlons slanted. `slant` is how far, in cycles, the top of a merlon is shifted along
+        // the line from its middle height (so the top is shifted 2 * slant relative to the bottom).
+        public static LineProfile Raguly(float duty = 0.5f, float slant = 0.12f) {
+            return new LineProfile(new[] { new Vector2(slant, 1), new Vector2(duty + slant, 1), new Vector2(duty - slant, -1), new Vector2(1 - slant, -1), new Vector2(1 + slant, 1) }, duty / 2f + slant);
+        }
+
+        // Merlons that are wider at the top than at the base, like the tail of a dovetail joint. `duty` is the width of the top
+        // as a fraction of the cycle, each side of the base is pulled in by `flare` cycles.
+        public static LineProfile Dovetailed(float duty = 0.45f, float flare = 0.12f) {
+            return new LineProfile(new[] { new Vector2(0, 1), new Vector2(duty, 1), new Vector2(duty - flare, -1), new Vector2(1 + flare, -1), new Vector2(1, 1) }, duty / 2f);
+        }
+
+        // A sine wave that overhangs: the bulbs lean out over the necks on both sides, like clouds. `overhang` 0 is a plain sine
+        // wave, about 1 is a good nebuly. Beyond about 2 the bulbs get very bulbous.
+        public static LineProfile Nebuly(float overhang = 1f, int samples = 48) {
+            Vector2[] points = new Vector2[samples + 1];
+            for (int i = 0; i <= samples; i++) {
+                float t = (float)i / samples;
+                points[i] = new Vector2(t - overhang * Mathf.Sin(4f * Mathf.PI * t) / (2f * Mathf.PI), Mathf.Sin(2f * Mathf.PI * t));
+            }
+            return new LineProfile(points, 0.25f);
+        }
+    }
+
     // A straight line through `origin` heading `angle` degrees counter clockwise from +x, bent sideways by a wave.
     // Amplitude and wavelength are in pixels, phase is in cycles (0.25 shifts the wave a quarter of a wavelength along the line).
+    // Use Between to place a line from one point to another with a given number of peaks.
     public struct WaveLine {
         readonly Vector2 origin, direction, normal;
         readonly WaveShape shape;
+        readonly LineProfile profile;   // null for the plain waves, which are computed from `shape`
         readonly float amplitude, wavelength, phase;
 
-        public WaveLine(Vector2 origin, float angle, WaveShape shape, float amplitude, float wavelength, float phase = 0f) {
+        public WaveLine(Vector2 origin, float angle, WaveShape shape, float amplitude, float wavelength, float phase = 0f)
+            : this(origin, angle, shape, null, amplitude, wavelength, phase) { }
+
+        public WaveLine(Vector2 origin, float angle, LineProfile profile, float amplitude, float wavelength, float phase = 0f)
+            : this(origin, angle, WaveShape.Sine, profile, amplitude, wavelength, phase) { }
+
+        WaveLine(Vector2 origin, float angle, WaveShape shape, LineProfile profile, float amplitude, float wavelength, float phase) {
             float radians = angle * Mathf.Deg2Rad;
             this.origin = origin;
             direction = new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
             normal = new Vector2(-direction.y, direction.x);
             this.shape = shape;
+            this.profile = profile;
             this.amplitude = amplitude;
             this.wavelength = wavelength;
             this.phase = phase;
         }
 
+        // A line from `start` to `end` with `count` peaks (one per wavelength: crests, merlons, points, lobes or bulbs).
+        // With `centred` a peak sits in the middle of the line so the pattern is symmetrical, otherwise a cycle starts at `start`.
+        public static WaveLine Between(Vector2 start, Vector2 end, int count, WaveShape shape, float amplitude, bool centred = true) {
+            return Between(start, end, count, shape, null, CrestPhase(shape), amplitude, centred);
+        }
+
+        public static WaveLine Between(Vector2 start, Vector2 end, int count, LineProfile profile, float amplitude, bool centred = true) {
+            return Between(start, end, count, WaveShape.Sine, profile, profile.crestPhase, amplitude, centred);
+        }
+
+        static WaveLine Between(Vector2 start, Vector2 end, int count, WaveShape shape, LineProfile profile, float crestPhase, float amplitude, bool centred) {
+            Vector2 along = end - start;
+            float angle = Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg;
+            float phase = centred ? crestPhase - count / 2f : 0f;
+            return new WaveLine(start, angle, shape, profile, amplitude, along.magnitude / count, phase);
+        }
+
         // Pixels from the wavy line to pixel (x, y), measured across the line direction. Positive on the left of the line.
+        // Only for the plain waves (not a LineProfile), which are single valued.
         public float SignedOffset(int x, int y) {
             Vector2 d = new Vector2(x + 0.5f, y + 0.5f) - origin;
             float along = Vector2.Dot(d, direction);
@@ -755,14 +867,29 @@ public static class BlazonDrawers  {
         }
 
         public bool IsOnSide(int x, int y, LineSide side) {
-            float offset = SignedOffset(x, y);
-            return side == LineSide.Left ? offset > 0f : offset <= 0f;
+            if (profile == null) {
+                float offset = SignedOffset(x, y);
+                return side == LineSide.Left ? offset > 0f : offset <= 0f;
+            }
+
+            Vector2 d = new Vector2(x + 0.5f, y + 0.5f) - origin;
+            float along = Vector2.Dot(d, direction);
+            float across = Vector2.Dot(d, normal);
+            float size = amplitude;
+            if (size < 0f) {
+                // a negative amplitude is the same outline seen from the other side of the line
+                across = -across;
+                size = -size;
+                side = side == LineSide.Left ? LineSide.Right : LineSide.Left;
+            }
+            bool below = profile.IsBelow(along / wavelength + phase, across / size);
+            return side == LineSide.Right ? below : !below;
         }
 
         // The same wave moved `distance` pixels to the left of the line (negative for right). Two shifted copies make the
         // edges of a wavy band: fill one side of the first, then clear one side of the second.
         public WaveLine Shifted(float distance) {
-            return new WaveLine(origin + normal * distance, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg, shape, amplitude, wavelength, phase);
+            return new WaveLine(origin + normal * distance, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg, shape, profile, amplitude, wavelength, phase);
         }
     }
 
