@@ -38,7 +38,6 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.18028378, g: 0.22571412, b: 0.30692285, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -286,6 +285,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shieldTemplate: {fileID: 0}
+  systematicBlazon:
+    field:
+      type: 2
+      variation: 0
+      divison: 0
+      tinctures: []
+      sinister: 0
+      count: 0
   testField:
     type: 0
     variation: 0
