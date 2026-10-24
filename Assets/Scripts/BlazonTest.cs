@@ -1,15 +1,6 @@
-using System.Collections;
 using System.Collections.Generic;
 using System;
-using Unity.VisualScripting;
-using UnityEditor;
 using UnityEngine;
-using System.Runtime.CompilerServices;
-//using UnityEditor.Experimental.GraphView;
-using UnityEngine.UI;
-using UnityEngine.Rendering.Universal;
-using Unity.VisualScripting.Antlr3.Runtime;
-using static BlazonTest;
 //using UnityEditor.AssetImporters;
 using static BlazonDrawers;
 
