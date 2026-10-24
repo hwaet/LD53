@@ -70,70 +70,40 @@ public static class BlazonDrawers  {
 
     public static Texture2D ApplyVariation(Texture2D field, Variation variation, Color[] tinctures, int patternCount = 4, bool sinister = false) {
         int patternStep = field.width / patternCount;
-        int colorDex;
 
         switch (variation) {
             case Variation.Paly:
-                field = Fill(field, tinctures[0]);
-                colorDex = 0;
+                // band index comes from position alone, so counts that don't divide the width stay clean
                 for (int x = 0; x < field.width; x++) {
-                    if (x % patternStep == 0) {
-                        colorDex = (colorDex + 1) % tinctures.Length;
-                    }
+                    int band = x * patternCount / field.width;
                     for (int y = 0; y < field.height; y++) {
-                        field.SetPixel(x, y, tinctures[colorDex]);
+                        field.SetPixel(x, y, tinctures[(band + 1) % tinctures.Length]);
                     }
                 }
                 return field;
             case Variation.Barry:
-                field = Fill(field, tinctures[0]);
-                colorDex = 0;
                 for (int y = field.height - 1; y >= 0; y--) {
-                    if (y % patternStep == 0) {
-                        colorDex = (colorDex + 1) % tinctures.Length;
-                    }
+                    int band = (field.height - 1 - y) * patternCount / field.height;
                     for (int x = 0; x < field.width; x++) {
-                        field.SetPixel(x, y, tinctures[colorDex]);
+                        field.SetPixel(x, y, tinctures[band % tinctures.Length]);
                     }
                 }
                 return field;
             case Variation.Bendy:
-                colorDex = 0;
-                int offset = 0;
                 if (sinister) {
-
                     for (int y = field.height - 1; y >= 0; y--) {
                         for (int x = 0; x < field.width; x++) {
-                            if ((x + offset) % patternStep == 0) {
-                                colorDex = (colorDex + 1) % tinctures.Length;
-                            }
-                            field.SetPixel(x, y, tinctures[colorDex]);
-                        }
-                        offset++;
-                        if ((y + 1) % patternStep == 0) {
-                            colorDex--;
-                            if (colorDex < 0) {
-                                colorDex = tinctures.Length - 1;
-                            }
+                            // band index depends only on the diagonal this pixel sits on
+                            int band = (x + (field.width - 1 - y)) * patternCount / field.width;
+                            field.SetPixel(x, y, tinctures[(band + 1) % tinctures.Length]);
                         }
                     }
                 }
                 else {
-                    colorDex = 0;
-                    offset = field.width;
                     for (int y = field.height - 1; y >= 0; y--) {
                         for (int x = 0; x < field.width; x++) {
-                            if ((x + offset) % patternStep == 0) {
-                                colorDex = (colorDex + 1) % tinctures.Length;
-                            }
-                            field.SetPixel(x, y, tinctures[colorDex]);
-                        }
-                        offset--;
-                        if (y % patternStep == 0) {
-                            colorDex--;
-                            if (colorDex < 0) {
-                                colorDex = tinctures.Length - 1;
-                            }
+                            int band = (x + y + 1) * patternCount / field.width;
+                            field.SetPixel(x, y, tinctures[(band + 1) % tinctures.Length]);
                         }
                     }
                 }
@@ -141,7 +111,7 @@ public static class BlazonDrawers  {
             case Variation.Chequy:
                 for (int x = 0; x < field.width; x++) {
                     for (int y = 0; y < field.height; y++) {
-                        if ((x / patternStep + y / patternStep) % 2 == 0) {
+                        if ((x * patternCount / field.width + y * patternCount / field.height) % 2 == 0) {
                             field.SetPixel(x, y, tinctures[1]);
                         }
                         else {
@@ -151,41 +121,15 @@ public static class BlazonDrawers  {
                 }
                 return field;
             case Variation.Chevronny:
-                field = Fill(field, tinctures[0]);
-                int colorDexLeft = 0;
-                int colorDexRight = 1;
-                int offsetLeft = 0;
-                int offsetRight = field.width;
-
                 for (int y = field.height - 1; y >= 0; y--) {
                     for (int x = 0; x < field.width / 2; x++) {
-                        if ((x + offsetLeft) % patternStep == 0) {
-                            colorDexLeft = (colorDexLeft + 1) % tinctures.Length;
-                        }
-                        field.SetPixel(x, y, tinctures[colorDexLeft]);
+                        int band = (x + (field.width - 1 - y)) * patternCount / field.width;
+                        field.SetPixel(x, y, tinctures[(band + 1) % tinctures.Length]);
                     }
-
                     for (int x = field.width / 2; x < field.width; x++) {
-                        if ((x + offsetRight) % patternStep == 0) {
-                            colorDexRight = (colorDexRight + 1) % tinctures.Length;
-                        }
-                        field.SetPixel(x, y, tinctures[colorDexRight]);
+                        int band = (x + y + 1) * patternCount / field.width;
+                        field.SetPixel(x, y, tinctures[band % tinctures.Length]);
                     }
-                    if ((y + 1) % patternStep == 0) {
-                        colorDexLeft--;
-                        if (colorDexLeft < 0) {
-                            colorDexLeft = tinctures.Length - 1;
-                        }
-                    }
-                    if (y % patternStep == 0) {
-                        colorDexRight--;
-                        if (colorDexRight < 0) {
-                            colorDexRight = tinctures.Length - 1;
-                        }
-                    }
-                    offsetLeft++;
-                    offsetRight--;
-
                 }
                 return field;
             case Variation.Gyronny:
