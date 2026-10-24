@@ -280,7 +280,11 @@ public partial class BlazonTest : MonoBehaviour {
 
     private Texture2D GenerationExperiments() {
         Texture2D tex = new Texture2D(256, 256);
-        tex = Fill(tex, Tincture.Azure);
+        tex = Fill(tex, Tincture.Argent);
+        //tex = DrawSinWave(tex, new RectInt(0,128,256,256), Tincture.Or, 25, 10, 0);
+        tex = DrawRect(tex, new RectInt(0, 128-12, 256, 24), Tincture.Gules);
+        tex = RotateTexture(tex , 45);
+
         //tex = DrawLine(tex, new Vector2Int(0, 256 / 4), new Vector2Int(1, 0), Tincture.Or, 10);
         //tex = DrawLine(tex, new Vector2Int(0, 256 / 4 * 3), new Vector2Int(1, 0), Tincture.Or, 10);
         //tex = DrawLine(tex, new Vector2Int(256 / 4, 0), new Vector2Int(0, 1), Tincture.Or, 10);
@@ -295,7 +299,7 @@ public partial class BlazonTest : MonoBehaviour {
         //tex = DrawLineSegment(tex, new Vector2Int(128, 108), new Vector2Int(256-20, 0), Tincture.Gules);
         //tex = FloodFill(tex, new Vector2Int(128, 126), Tincture.Gules, FloodFillMode.UntilTargetColor);
 
-        tex = DrawRect(tex, new RectInt(64, 64, 128, 128), Tincture.Gules);
+        //tex = DrawRect(tex, new RectInt(64, 64, 128, 128), Tincture.Gules);
 
         tex.Apply();
         return tex;

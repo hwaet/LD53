@@ -624,6 +624,66 @@ public static class BlazonDrawers  {
     }
     //Given a Color[,] field and starting point, draw a line in the field of a given slope using Bresenham's line algorithm
     
+    public static Texture2D DrawSinWave(Texture2D field, RectInt rect, Color color, float amplitude, float frequency, float phase) {
+        for (int x = 0; x < rect.width; x++) {
+            for(int y = 0; y < rect.height; y++) {
+                if(y < (int)(rect.height / 2 + amplitude * Mathf.Sin((x + phase) * frequency * Mathf.Deg2Rad))) {
+                    field.SetPixel(rect.x + x, rect.height + y, color);
+                }
+            }
+            //field.SetPixel(x, (int)(rect.y - amplitude * Mathf.Sin((x + phase) * frequency * Mathf.Deg2Rad)), color);
+        }
+        return field;
+    }
+
+    public static Texture2D RotateTexture(Texture2D field, float angle) {
+        Color[,] stamp = field.GetStampTemplate();
+        stamp = RotateStamp(stamp, angle);
+        return StampToTexture(field, stamp);
+    }
+
+    private static Color[,] RotateStamp(Color[,] stamp, float angle) {
+        Color[,] ret = new Color[stamp.GetLength(0), stamp.GetLength(1)];
+        for(int x = 0; x < stamp.GetLength(0); x++) {
+            for(int y = 0; y < stamp.GetLength(1); y++) {
+                var ang = angle * Mathf.Deg2Rad;
+                var x1 = x - stamp.GetLength(0) / 2;
+                var y1 = y - stamp.GetLength(1) / 2;
+                var x2 = (int)(Mathf.Cos(ang) * (x1) - Mathf.Sin(ang) * (y1));
+                var y2 = (int)(Mathf.Sin(ang) * (x1) + Mathf.Cos(ang) * (y1));
+
+                var x3 = x2 + stamp.GetLength(0) / 2;
+                var y3 = y2 + stamp.GetLength(1) / 2;
+
+                //Debug.LogFormat("({0},{1}) -> ({2},{3})", x, y, x2, y2);
+                if(x3 >= 0 && x3 < stamp.GetLength(0) && y3 >= 0 && y3 < stamp.GetLength(1)) {
+                    //Debug.Log("Writing to Stamp!");
+                    ret[x3, y3] = stamp[x, y];
+                }
+            }
+        }
+        return ret;
+    }
+
+    public static Texture2D DrawScallop(Texture2D field, RectInt rect, Color color, float amplitude, float frequency, float phase, bool up) {
+        for (int x = 0; x < rect.width; x++) {
+            for (int y = 0; y < rect.height; y++) {
+                if (up) {
+                    if (y < (int)(rect.height / 2 + amplitude * Mathf.Abs(Mathf.Sin((x + phase) * frequency * Mathf.Deg2Rad)))) {
+                        field.SetPixel(rect.x + x, rect.height + y, color);
+                    }
+                }
+                else {
+                    if (y < (int)(rect.height / 2 - amplitude * Mathf.Abs(Mathf.Sin((x + phase) * frequency * Mathf.Deg2Rad)))) {
+                        field.SetPixel(rect.x + x, rect.height + y, color);
+                    }
+                }
+            }
+            //field.SetPixel(x, (int)(rect.y - amplitude * Mathf.Sin((x + phase) * frequency * Mathf.Deg2Rad)), color);
+        }
+        return field;
+    }
+
     public static Texture2D DrawLine(Texture2D field, Vector2Int intercept, Vector2Int slope, Color color, int thickness) {
 
         for (int x = 0; x < field.width; x++) {
