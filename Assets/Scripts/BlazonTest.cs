@@ -33,6 +33,10 @@ public partial class BlazonTest : MonoBehaviour {
     private bool avoidFieldColorReuse = true, avoidElementColorReuse = true;
     private int numberOfElements = 1;
 
+    private string[] shieldNames;
+    private int shieldIndex;
+    private bool clipToShield;
+
 
     [Header("Systematic Test Field")]
     public Field testField;
@@ -62,6 +66,40 @@ public partial class BlazonTest : MonoBehaviour {
 
 
 
+    private Shield CurrentShield {
+        get {
+            if (shieldNames == null) {
+                shieldNames = Shield.AllNames();
+            }
+            if (shieldNames.Length == 0) {
+                return Shield.Default;
+            }
+            return Shield.Get(shieldNames[Mathf.Clamp(shieldIndex, 0, shieldNames.Length - 1)]);
+        }
+    }
+
+    // Renders a blazon on the selected shield, clipped to its outline if asked.
+    private Texture2D RenderOnShield(Blazon blazon) {
+        Shield shield = CurrentShield;
+        Texture2D texture = blazon.GenerateTexture(256, shield);
+        if (clipToShield) {
+            shield.ClipTexture(texture);
+        }
+        return texture;
+    }
+
+    // A roundel at every named point, to check where a shield puts them.
+    private static Blazon ChargePointsBlazon() {
+        Color[] tinctures = { Tincture.Gules, Tincture.Azure, Tincture.Vert, Tincture.Sable, Tincture.Purpure };
+        List<Element> elements = new List<Element>();
+        int i = 0;
+        foreach (Blazon.Point point in Enum.GetValues(typeof(Blazon.Point))) {
+            elements.Add(new Charge(Charge.ChargeShape.Roundel, tinctures[i % tinctures.Length], point));
+            i++;
+        }
+        return new Blazon(new Field(Tincture.Argent), elements);
+    }
+
     private static GUIStyle MakeWarningStyle() {
         GUIStyle style = new GUIStyle(GUI.skin.label);
         style.normal.textColor = new Color(1f, 0.85f, 0.3f);
@@ -89,7 +127,7 @@ public partial class BlazonTest : MonoBehaviour {
         GUI.enabled = parseError == "Blazon Valid!";
 
         if (GUILayout.Button("Render")) {
-            testTexture = testBlazon.GenerateTexture(256);
+            testTexture = RenderOnShield(testBlazon);
             Debug.Log("Creating:" + testBlazon.ToBlazonDescription());
 
             //Color[,] mask = shieldTemplate.GetColorArray();
@@ -113,6 +151,19 @@ public partial class BlazonTest : MonoBehaviour {
         ordinary = GUILayout.Toggle(ordinary, "Add Ordinary");
         avoidFieldColorReuse = GUILayout.Toggle(avoidFieldColorReuse, "Avoid Field Color Reuse");
         avoidElementColorReuse = GUILayout.Toggle(avoidElementColorReuse, "Avoid Element Color Reuse");
+        if (shieldNames == null) {
+            shieldNames = Shield.AllNames();
+        }
+        if (shieldNames.Length > 1) {
+            GUILayout.Label("Shield: " + shieldNames[Mathf.Clamp(shieldIndex, 0, shieldNames.Length - 1)]);
+            shieldIndex = (int)GUILayout.HorizontalSlider(shieldIndex, 0, shieldNames.Length - 1);
+        }
+        clipToShield = GUILayout.Toggle(clipToShield, "Clip to Shield");
+        if (GUILayout.Button("Show Charge Points")) {
+            testBlazon = ChargePointsBlazon();
+            blazonPrompt = testBlazon.ToBlazonDescription();
+            testTexture = RenderOnShield(testBlazon);
+        }
         GUILayout.BeginHorizontal();
         GUILayout.Label("Number of Charges:");
         GUI.enabled = false;
@@ -124,7 +175,7 @@ public partial class BlazonTest : MonoBehaviour {
         if(GUILayout.Button("Generate Random Blazon")) {
             testBlazon = Blazon.RandomBlazon(complexFields, ruleOfTincture, ordinary, numberOfElements, avoidFieldColorReuse, avoidElementColorReuse);
             blazonPrompt = testBlazon.ToBlazonDescription();
-            testTexture = testBlazon.GenerateTexture(256);
+            testTexture = RenderOnShield(testBlazon);
         }
 
 
@@ -208,7 +259,7 @@ public partial class BlazonTest : MonoBehaviour {
         GUI.enabled = true;
 
         if(GUILayout.Button("Render Systematic Blazon")) {
-            testTexture = systematicBlazon.GenerateTexture(256);
+            testTexture = RenderOnShield(systematicBlazon);
             blazonPrompt = systematicBlazon.ToBlazonDescription();
         }
         GUILayout.EndVertical();

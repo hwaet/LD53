@@ -180,7 +180,7 @@ public static class BlazonDrawers  {
         }
     }
 
-    public static Texture2D ApplyOrdinary(Texture2D field, OrdinaryShape shape, Color tincture, bool sinister = false) {
+    public static Texture2D ApplyOrdinary(Texture2D field, OrdinaryShape shape, Color tincture, bool sinister = false, Shield shield = null) {
         Color [,] stamp = field.GetStampTemplate();
         switch (shape) {
             case OrdinaryShape.Chief:
@@ -237,8 +237,12 @@ public static class BlazonDrawers  {
                 field = StampToTexture(field, stamp);
                 return field;
 
-            //case OrdinaryShape.Pall:
-            //case OrdinaryShape.Bordure:
+            case OrdinaryShape.Bordure:
+                return DrawBordure(field, tincture, shield);
+
+            case OrdinaryShape.Pall:
+                return DrawPall(field, tincture, shield);
+
             default:
                 Debug.LogFormat("Haven't implemented {0} yet", shape);
                 return field;
@@ -246,17 +250,19 @@ public static class BlazonDrawers  {
         }
     }
 
-    public static Texture2D ApplyCharge(Texture2D field, Charge charge) {
+    public static Texture2D ApplyCharge(Texture2D field, Charge charge, Shield shield = null) {
+        shield = shield ?? Shield.Default;
+        int shieldWidth = shield.Bounds(field.width).width;
         switch (charge.type) {
             case ChargeType.Single:
                 charge.point = Point.FessPoint;
-                return ApplyChargeAtPoint(field, charge, field.width / 2);
+                return ApplyChargeAtPoint(field, charge, shieldWidth / 2, shield);
 
             case ChargeType.Positioned:
-                return ApplyChargeAtPoint(field, charge, field.width / 3);
+                return ApplyChargeAtPoint(field, charge, shieldWidth / 3, shield);
 
             case ChargeType.Multiple:
-                RectInt[] placements = GetChargeLayout(field, charge.count);
+                RectInt[] placements = GetChargeLayout(field, charge.count, shield);
                 return ApplyChargesAtPlacements(field, charge, placements);
 
             case ChargeType.LaidOut:
@@ -266,8 +272,8 @@ public static class BlazonDrawers  {
         }
     }
 
-    private static Texture2D ApplyChargeAtPoint(Texture2D field, Charge charge, int scale) {
-        RectInt outerRect = RectFromPoint(field, charge.point, scale);
+    private static Texture2D ApplyChargeAtPoint(Texture2D field, Charge charge, int scale, Shield shield) {
+        RectInt outerRect = RectFromPoint(field, charge.point, scale, shield);
         outerRect = outerRect.ConcentricRectInt(field.width / 32);
         switch (charge.shape) {
             case ChargeShape.Roundel:
@@ -356,67 +362,14 @@ public static class BlazonDrawers  {
 
     #region Helper Functions
 
-    public static RectInt RectFromPoint(Texture2D field, Point point, int size) {
-        return point switch {
-            Point.Chief => new RectInt(field.width / 2 - size / 2, field.height - 1, size, size),
-            Point.Dexter => new RectInt(0, field.height / 2 + size / 2, size, size),
-            Point.Sinister => new RectInt(field.width - size, field.height / 2 + size / 2, size, size),
-            Point.Base => new RectInt(field.width / 2 - size / 2, size, size, size),
-
-            Point.DexterChief => new RectInt(0, field.height - 1, size, size),
-            Point.MiddleChief => new RectInt(field.width / 2 - size / 2, field.height - 1, size, size),
-            Point.SinisterChief => new RectInt(field.width - size, field.height - 1, size, size),
-
-            Point.DexterBase => new RectInt(0, size, size, size),
-            Point.MiddleBase => new RectInt(field.width / 2 - size / 2, size, size, size),
-            Point.SinisterBase => new RectInt(field.width - size, size, size, size),
-
-            Point.FessPoint => new RectInt(field.width / 2 - size / 2, field.height / 2 + size / 2, size, size),
-            // Half way between the Middle Chief and the Fess Point
-            Point.HonourPoint => new RectInt(field.width / 2 - size / 2, (field.height - 1 + field.height / 2 + size / 2) / 2, size, size),
-            //Halfway between the Base and the Honor Point
-            Point.NombrilPoint => new RectInt(field.width / 2 - size / 2, ((field.height - 1 + field.height / 2 + size / 2) / 2 + size) / 2, size, size),
-            //Default to the Fess Point
-            _ => new RectInt(field.width / 2 - size / 2, field.height / 2 + size / 2, size, size),
-        };
+    // Where a charge of `size` pixels goes at a named point. The points belong to the shield, see Shield.PlaceCharge.
+    public static RectInt RectFromPoint(Texture2D field, Point point, int size, Shield shield = null) {
+        return (shield ?? Shield.Default).PlaceCharge(point, size, field.width);
     }
 
-    public static RectInt[] GetChargeLayout(Texture2D field, int number) {
-        if(number < 1) {
-            throw new ArgumentException("Number of charges must be greater than 0");
-        }
-        int width;
-        switch (number) {
-            case 1:
-                return new RectInt[] { RectFromPoint(field, Point.FessPoint, field.width / 2) };
-            case 2:
-                width = field.width / 4;
-                return new RectInt[] { new RectInt(field.width / 7, field.height * 3 / 4 + width / 2, width, width),
-                            new RectInt(field.width * 4 / 7, field.height * 3 / 4 + width / 2, width, width) };
-            case 4:
-                width = field.width / 4;
-                int x1 = field.width / 3;
-                int x2 = field.width * 2 / 3;
-                int y1 = field.height * 2 / 5;
-                int y2 = field.height * 4 / 5;
-                return new RectInt[] { new RectInt(x1 - width / 2, y1 + width / 2, width, width),
-                                        new RectInt(x1 - width / 2, y2 + width / 2, width, width),
-                                        new RectInt(x2 - width / 2, y1 + width / 2, width, width),
-                                        new RectInt(x2 - width / 2, y2 + width / 2, width, width) };
-                  
-            default:
-                width = field.width / Mathf.Max(number, 4);
-                int angle = 360 / number;
-                List<RectInt>  rects = new List<RectInt>();
-                //iterate through the number of charge moving along a circle, starting at the top generate a point and then rotate the point by the angle
-                //add the point to the list of points
-                for (int i = 0; i < number; i++) {
-                        int x = field.width / 2 + (int)((field.width / 4) * Mathf.Sin((angle * i + 180) * Mathf.Deg2Rad));
-                        int y = field.height / 2 + (int)((field.height / 4) * Mathf.Cos((angle * i + 180) * Mathf.Deg2Rad));
-                        rects.Add(new RectInt(x - width / 2, y + width / 2, width, width));
-                }
-                return rects.ToArray();
-        }
+    // Where each of `number` charges goes, laid out within the shield, see Shield.PlaceCharges.
+    public static RectInt[] GetChargeLayout(Texture2D field, int number, Shield shield = null) {
+        return (shield ?? Shield.Default).PlaceCharges(number, field.width);
     }
 
     public static Texture2D TextureFromColorsArray(Color[,] colors) {
@@ -717,6 +670,58 @@ public static class BlazonDrawers  {
             }
         }
         return field;
+    }
+
+    // Height of the pall's junction as a fraction of the shield's height, same as the pall division uses.
+    private const float PallJunctionHeight = 2f / 3f;
+
+    // Band about 1/6 of the shield's width running around the inside of the shield outline, whatever shape it is.
+    // Paints everything outside the inset shield, including past the outline, so it reaches the texture edge
+    // like the other ordinaries do. Add `&& shield.Contains(x, y, field.width)` to keep it strictly inside the shield.
+    public static Texture2D DrawBordure(Texture2D field, Color color, Shield shield = null) {
+        shield = shield ?? Shield.Default;
+        float width = shield.Bounds(field.width).width / 6f;
+        for (int x = 0; x < field.width; x++) {
+            for (int y = 0; y < field.height; y++) {
+                if (shield.DistanceToEdge(x, y, field.width) <= width) {
+                    field.SetPixel(x, y, color);
+                }
+            }
+        }
+        return field;
+    }
+
+    // Y shape: arms from each upper corner of the shield meet at a junction, then one arm runs down to the bottom middle.
+    // Each arm is about 1/6 of the shield's width thick.
+    public static Texture2D DrawPall(Texture2D field, Color color, Shield shield = null) {
+        shield = shield ?? Shield.Default;
+        RectInt bounds = shield.Bounds(field.width);
+        float thickness = bounds.width / 6f;
+        Vector2 junction = new Vector2(bounds.x + bounds.width / 2f, bounds.y + bounds.height * PallJunctionHeight);
+
+        // arms run past the edge of the shield so no end caps show
+        Vector2 dexterEnd = junction + (new Vector2(bounds.xMin, bounds.yMax - 1) - junction) * 1.25f;
+        Vector2 sinisterEnd = junction + (new Vector2(bounds.xMax - 1, bounds.yMax - 1) - junction) * 1.25f;
+        Vector2 baseEnd = new Vector2(junction.x, bounds.yMin - thickness);
+
+        for (int x = 0; x < field.width; x++) {
+            for (int y = 0; y < field.height; y++) {
+                Vector2 p = new Vector2(x, y);
+                float d = Mathf.Min(DistanceToSegment(p, junction, dexterEnd),
+                           Mathf.Min(DistanceToSegment(p, junction, sinisterEnd),
+                                     DistanceToSegment(p, junction, baseEnd)));
+                if (d <= thickness / 2f) {
+                    field.SetPixel(x, y, color);
+                }
+            }
+        }
+        return field;
+    }
+
+    private static float DistanceToSegment(Vector2 p, Vector2 a, Vector2 b) {
+        Vector2 ab = b - a;
+        float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+        return Vector2.Distance(p, a + ab * t);
     }
 
     public static Texture2D DrawLineSegment(Texture2D field, Vector2Int start, Vector2Int end, Color color) {

@@ -50,7 +50,7 @@ public class Blazon {
         elements = new List<Element>();
     }
        
-    public Texture2D GenerateTexture(int size) {
+    public Texture2D GenerateTexture(int size, Shield shield = null) {
         Texture2D tex = new Texture2D(size, size, TextureFormat.ARGB32, false);
         tex.wrapMode = TextureWrapMode.Clamp;
 		switch (field.type) {
@@ -72,10 +72,10 @@ public class Blazon {
 
         foreach(Element elem in elements) {
             if (elem is Ordinary ordinary) {
-                tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister);
+                tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister, shield);
             }
             else if(elem is Charge charge) {
-                tex = ApplyCharge(tex, charge);
+                tex = ApplyCharge(tex, charge, shield);
             }
         }
 

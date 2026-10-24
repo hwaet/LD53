@@ -7,6 +7,8 @@ public class BlazonGenerator : MonoBehaviour
 {
     BlazonTest bp;
     public string blazonDescription = "Azure, a bend Or";
+    // Name of a PNG in Resources/Shields. Empty uses the default shield.
+    public string shieldName = "";
     public Texture2D blazonTexture;
 
     public SkinnedMeshRenderer bannerRenderer;
@@ -29,9 +31,14 @@ public class BlazonGenerator : MonoBehaviour
     {
         Blazon newBlazon;
 		newBlazon = Blazon.Parse(blazonDescription);
-		blazonTexture = newBlazon.GenerateTexture(256);
+		Shield shield = string.IsNullOrEmpty(shieldName) ? Shield.Default : Shield.Get(shieldName);
+		blazonTexture = newBlazon.GenerateTexture(256, shield);
 
 		bannerRenderer.sharedMaterial.SetTexture("_Blazon_Texture", blazonTexture);
+		if (!string.IsNullOrEmpty(shieldName) && shield.source != null) {
+			// the banner clips the blazon to the shield with the same PNG
+			bannerRenderer.sharedMaterial.SetTexture("_Blazon_Mask", shield.source);
+		}
 
 	}
 

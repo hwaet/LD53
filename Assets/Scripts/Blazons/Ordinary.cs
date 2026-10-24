@@ -12,9 +12,9 @@ public class Ordinary: Element {
         Chevron, // chevron pointing up
         Saltire, // diagonal cross
         Chief, // horizontal line at outTop
-        //Bordure, // border            << NOT IMPLEMENTED
+        Bordure, // border
         Pile, // triangle pointing down
-        //Pall, // Y shape              << NOT IMPLEMENTED
+        Pall, // Y shape
     }
 
     public OrdinaryShape shape;
