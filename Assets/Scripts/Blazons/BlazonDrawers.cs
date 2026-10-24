@@ -697,6 +697,133 @@ public static class BlazonDrawers  {
         return field;
     }
 
+    #region Wave Drawing Functions
+
+    public enum WaveShape {
+        Sine,
+        Square,
+        Triangle,
+        Scallop
+    }
+
+    // Which side of a line to fill, looking along the direction the line travels.
+    public enum LineSide {
+        Left,
+        Right
+    }
+
+    // Value of a unit wave `cycles` along the line, with a period of 1. Sine, square and triangle run from -1 to 1: sine and
+    // triangle start at 0 and rise, square starts at +1 for the first half cycle. Scallop is one half sine arch per cycle, so it
+    // runs from 0 to 1 (not centred), with its cusps on the line and its bumps to the left; a negative amplitude flips them right.
+    public static float WaveValue(WaveShape shape, float cycles) {
+        switch (shape) {
+            case WaveShape.Sine:
+                return Mathf.Sin(Mathf.Repeat(cycles, 1f) * 2f * Mathf.PI);
+            case WaveShape.Square:
+                return Mathf.Repeat(cycles, 1f) < 0.5f ? 1f : -1f;
+            case WaveShape.Scallop:
+                return Mathf.Abs(Mathf.Sin(Mathf.Repeat(cycles, 1f) * Mathf.PI));
+            default:
+                return 1f - 4f * Mathf.Abs(Mathf.Repeat(cycles + 0.25f, 1f) - 0.5f);
+        }
+    }
+
+    // A straight line through `origin` heading `angle` degrees counter clockwise from +x, bent sideways by a wave.
+    // Amplitude and wavelength are in pixels, phase is in cycles (0.25 shifts the wave a quarter of a wavelength along the line).
+    public struct WaveLine {
+        readonly Vector2 origin, direction, normal;
+        readonly WaveShape shape;
+        readonly float amplitude, wavelength, phase;
+
+        public WaveLine(Vector2 origin, float angle, WaveShape shape, float amplitude, float wavelength, float phase = 0f) {
+            float radians = angle * Mathf.Deg2Rad;
+            this.origin = origin;
+            direction = new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
+            normal = new Vector2(-direction.y, direction.x);
+            this.shape = shape;
+            this.amplitude = amplitude;
+            this.wavelength = wavelength;
+            this.phase = phase;
+        }
+
+        // Pixels from the wavy line to pixel (x, y), measured across the line direction. Positive on the left of the line.
+        public float SignedOffset(int x, int y) {
+            Vector2 d = new Vector2(x + 0.5f, y + 0.5f) - origin;
+            float along = Vector2.Dot(d, direction);
+            float across = Vector2.Dot(d, normal);
+            return across - amplitude * WaveValue(shape, along / wavelength + phase);
+        }
+
+        public bool IsOnSide(int x, int y, LineSide side) {
+            float offset = SignedOffset(x, y);
+            return side == LineSide.Left ? offset > 0f : offset <= 0f;
+        }
+
+        // The same wave moved `distance` pixels to the left of the line (negative for right). Two shifted copies make the
+        // edges of a wavy band: fill one side of the first, then clear one side of the second.
+        public WaveLine Shifted(float distance) {
+            return new WaveLine(origin + normal * distance, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg, shape, amplitude, wavelength, phase);
+        }
+    }
+
+    // Fills everything on `side` of a wavy line.
+    public static Texture2D DrawWave(Texture2D field, WaveLine line, Color color, LineSide side = LineSide.Right) {
+        for (int x = 0; x < field.width; x++) {
+            for (int y = 0; y < field.height; y++) {
+                if (line.IsOnSide(x, y, side)) {
+                    field.SetPixel(x, y, color);
+                }
+            }
+        }
+        return field;
+    }
+
+    // Same, into a stamp. Draw with Color.clear to cut a wavy edge out of a stamp.
+    public static Color[,] DrawWave(Color[,] field, WaveLine line, Color color, LineSide side = LineSide.Right) {
+        for (int x = 0; x < field.GetLength(0); x++) {
+            for (int y = 0; y < field.GetLength(1); y++) {
+                if (line.IsOnSide(x, y, side)) {
+                    field[x, y] = color;
+                }
+            }
+        }
+        return field;
+    }
+
+    public static Texture2D DrawSinWave(Texture2D field, Vector2 origin, float angle, Color color, float amplitude, float wavelength, float phase = 0f, LineSide side = LineSide.Right) {
+        return DrawWave(field, new WaveLine(origin, angle, WaveShape.Sine, amplitude, wavelength, phase), color, side);
+    }
+
+    public static Color[,] DrawSinWave(Color[,] field, Vector2 origin, float angle, Color color, float amplitude, float wavelength, float phase = 0f, LineSide side = LineSide.Right) {
+        return DrawWave(field, new WaveLine(origin, angle, WaveShape.Sine, amplitude, wavelength, phase), color, side);
+    }
+
+    public static Texture2D DrawSquareWave(Texture2D field, Vector2 origin, float angle, Color color, float amplitude, float wavelength, float phase = 0f, LineSide side = LineSide.Right) {
+        return DrawWave(field, new WaveLine(origin, angle, WaveShape.Square, amplitude, wavelength, phase), color, side);
+    }
+
+    public static Color[,] DrawSquareWave(Color[,] field, Vector2 origin, float angle, Color color, float amplitude, float wavelength, float phase = 0f, LineSide side = LineSide.Right) {
+        return DrawWave(field, new WaveLine(origin, angle, WaveShape.Square, amplitude, wavelength, phase), color, side);
+    }
+
+    public static Texture2D DrawTriangleWave(Texture2D field, Vector2 origin, float angle, Color color, float amplitude, float wavelength, float phase = 0f, LineSide side = LineSide.Right) {
+        return DrawWave(field, new WaveLine(origin, angle, WaveShape.Triangle, amplitude, wavelength, phase), color, side);
+    }
+
+    public static Color[,] DrawTriangleWave(Color[,] field, Vector2 origin, float angle, Color color, float amplitude, float wavelength, float phase = 0f, LineSide side = LineSide.Right) {
+        return DrawWave(field, new WaveLine(origin, angle, WaveShape.Triangle, amplitude, wavelength, phase), color, side);
+    }
+
+    public static Texture2D DrawScallopWave(Texture2D field, Vector2 origin, float angle, Color color, float amplitude, float wavelength, float phase = 0f, LineSide side = LineSide.Right) {
+        return DrawWave(field, new WaveLine(origin, angle, WaveShape.Scallop, amplitude, wavelength, phase), color, side);
+    }
+
+    public static Color[,] DrawScallopWave(Color[,] field, Vector2 origin, float angle, Color color, float amplitude, float wavelength, float phase = 0f, LineSide side = LineSide.Right) {
+        return DrawWave(field, new WaveLine(origin, angle, WaveShape.Scallop, amplitude, wavelength, phase), color, side);
+    }
+
+    #endregion
+
     public static Texture2D DrawLine(Texture2D field, Vector2Int intercept, Vector2Int slope, Color color, int thickness) {
 
         for (int x = 0; x < field.width; x++) {
