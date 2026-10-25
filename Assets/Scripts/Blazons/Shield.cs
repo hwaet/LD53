@@ -205,6 +205,13 @@ public class Shield {
         return new Vector2(b.x + unit.x * b.width, b.y + unit.y * b.height);
     }
 
+    // Where a named point of the shield is, as a pixel position. The fess point is the middle of the shield's bounds, the corner
+    // points are the corners of its bounds (which may be outside the outline, as at the base of a rounded shield) and the
+    // edge points are the middle of each side. Use PlaceCharge to put a charge at a point.
+    public Vector2 PointPosition(Blazon.Point point, int size) {
+        return UnitToPixel(PointUnit(point), size);
+    }
+
     // Clears everything outside the shield, handy for seeing a blazon the way the player will.
     public Texture2D ClipTexture(Texture2D texture) {
         for (int x = 0; x < texture.width; x++) {

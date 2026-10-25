@@ -40,8 +40,8 @@ public class Blazon {
         elements  = new List<Element>();
     }
 
-    public Blazon(Variation variation, Color[] tinctures, bool sinister=false, int count=0) {
-        field = new Field(variation, tinctures, sinister, count);
+    public Blazon(Variation variation, Color[] tinctures, bool sinister=false, int count=0, Line line = default) {
+        field = new Field(variation, tinctures, sinister, count, line);
         elements = new List<Element>();
     }
 
@@ -59,20 +59,20 @@ public class Blazon {
                 break;
             case FieldTypes.Varied:
                 if (field.count > 0) {
-                    tex = ApplyVariation(tex, field.variation, field.tinctures, field.count, field.sinister);
+                    tex = ApplyVariation(tex, field.variation, field.tinctures, field.count, field.sinister, field.line, shield);
                 }
                 else {
-                    tex = ApplyVariation(tex, field.variation, field.tinctures, 4, field.sinister);
+                    tex = ApplyVariation(tex, field.variation, field.tinctures, 4, field.sinister, field.line, shield);
                 }
                 break;
             case FieldTypes.Divided:
-                tex = ApplyDivision(tex, field.divison, field.tinctures, field.sinister);
+                tex = ApplyDivision(tex, field.divison, field.tinctures, field.sinister, field.line, shield);
                 break;
         }
 
         foreach(Element elem in elements) {
             if (elem is Ordinary ordinary) {
-                tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister, shield);
+                tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister, shield, ordinary.line);
             }
             else if(elem is Charge charge) {
                 tex = ApplyCharge(tex, charge, shield);
@@ -159,10 +159,17 @@ public class Blazon {
             blazon = new Blazon(Tincture.Tinctures[field[0]]);
         }
         //If it starts with the name of a variation then its a varied field
-        //This could technically have numbers following it but not handling that for now.
         else if (Variations.ContainsKey(field[0])){
             List<Color> tinctures = new List<Color>();
+            Line variationLine = default;
             for (int i = 1; i < field.Length; i++) {
+                // the number after "of" is how many bars there are, not how many peaks the line has
+                Line parsedLine;
+                int used;
+                if (Line.TryParse(field, i, out parsedLine, out used, false)) {
+                    variationLine = parsedLine;
+                    continue;
+                }
                 if (Tincture.Tinctures.ContainsKey(field[i])) {
                     tinctures.Add(Tincture.Tinctures[field[i]]);
                 }
@@ -182,10 +189,10 @@ public class Blazon {
                 throw new BlazonError("A Variation must be composed of at least 2 tinctures.");
             }
             if(count != string.Empty) {
-                blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister, Numbers[count]);
+                blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister, Numbers[count], variationLine);
             }
             else {
-                blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister, -1);
+                blazon = new Blazon(Variations[field[0]], tinctures.ToArray(), sinister, -1, variationLine);
             }   
         }
         //If it starts with Pary, Parted, or Per then its a Divided field
@@ -244,6 +251,10 @@ public class Blazon {
 
                 if(field.variation == Variation.Bendy && field.sinister) {
                     ret += " sinister";
+                }
+
+                if (!field.line.IsStraight) {
+                    ret += " " + field.line.StyleName;
                 }
 
                 if(field.count > 0) {
@@ -310,15 +321,8 @@ public class Blazon {
     public List<string> Validate() {
         List<string> warnings = new List<string>();
 
-        // Lines are parsed and described but no drawer uses them yet. Remove these warnings once they do.
-        if (field.type == FieldTypes.Divided && !field.line.IsStraight) {
-            warnings.Add("The " + field.line.ToBlazonDescription() + " line of the division isn't drawn yet, it will be straight.");
-        }
-        foreach (Element element in elements) {
-            Ordinary lined = element as Ordinary;
-            if (lined != null && !lined.line.IsStraight) {
-                warnings.Add("The " + lined.line.ToBlazonDescription() + " line of \"" + lined.ToBlazonDescription() + "\" isn't drawn yet, it will be straight.");
-            }
+        if (field.type == FieldTypes.Varied && !field.line.IsStraight && !LineApplies(field.variation)) {
+            warnings.Add("A line style only applies to paly, barry, bendy and chevronny, so \"" + field.line.StyleName + "\" is ignored on " + field.variation.ToString().ToLower() + ".");
         }
 
         for (int i = 0; i < elements.Count; i++) {
@@ -344,6 +348,11 @@ public class Blazon {
         }
 
         return warnings;
+    }
+
+    // Whether a variation of the field has lines between its bars that a line style can be applied to.
+    public static bool LineApplies(Variation variation) {
+        return variation == Variation.Paly || variation == Variation.Barry || variation == Variation.Bendy || variation == Variation.Chevronny;
     }
 
     private static string TinctureName(Color tincture) {

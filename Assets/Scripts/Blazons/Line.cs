@@ -9,35 +9,16 @@ using static BlazonParserHelpers;
 // A line is described from its interior: for a partition line the interior is the part of the field named first, and the
 // drawers fill the interior on the right of the line's direction (LineSide.Right).
 public enum LineStyle {
-    // A plain straight line, the default for anything that doesn't name a line.
-    Straight,
-
-    // A sine wave, often for water. Also called undy.
-    Wavy,
-
-    // A series of circular arcs meeting at points. The points face away from the interior.
-    Engrailed,
-
-    // Like engrailed but the points face into the interior.
-    Invected,
-
-    // A square wave, for castle battlements. Blazons can give the number of battlements.
-    Embattled,
-
-    // Small zigzags like a triangle wave. Across a band the peaks of one edge match the peaks of the other.
-    Indented,
-
-    // Like indented but across a band peaks match troughs so the band keeps a constant width. Usually fewer points, three by default.
-    Dancetty,
-
-    // Like wavy with more exaggerated meanders, for clouds. Blazons can give the number of undulations.
-    Nebuly,
-
-    // Embattled with oblique rather than right angled sides, like the stumps of limbs on a tree trunk.
-    Raguly,
-
-    // Like a carpentry dovetail joint: merlons wider at the top than at the base.
-    Dovetailed
+    Straight,       // A plain straight line, the default for anything that doesn't name a line.
+    Wavy,           // A sine wave, often for water. Also called undy.
+    Engrailed,      // A series of circular arcs meeting at points. The points face away from the interior.
+    Invected,       // Like engrailed but the points face into the interior.
+    Embattled,      // A square wave, for castle battlements. Blazons can give the number of battlements.
+    Indented,       // Small zigzags like a triangle wave. Across a band the peaks of one edge match the peaks of the other.
+    Dancetty,       // Like indented but across a band peaks match troughs so the band keeps a constant width. Usually fewer points, three by default.
+    Nebuly,         // Like wavy with more exaggerated meanders, for clouds. Blazons can give the number of undulations.
+    Raguly,         // Embattled with oblique rather than right angled sides, like the stumps of limbs on a tree trunk.
+    Dovetailed      // Like a carpentry dovetail joint: merlons wider at the top than at the base.
 }
 
 // How a division or an ordinary's edge is drawn. A line is a property of a Field (for its division) or an Ordinary, not an
@@ -62,6 +43,17 @@ public struct Line {
         get { return count > 0 ? count : DefaultCount(style); }
     }
 
+    // Whether the two edges of a band are copies of each other moved apart (a wavy fess is a ribbon of constant width) rather than
+    // mirror images of each other (an indented fess has its points opposite each other and swells and narrows).
+    public bool ParallelEdges {
+        get { return style == LineStyle.Wavy || style == LineStyle.Nebuly || style == LineStyle.Dancetty; }
+    }
+
+    // How far the line wanders from straight for a given wavelength, in pixels.
+    public float AmplitudeFor(float wavelength) {
+        return AmplitudeFactor(style) * wavelength;
+    }
+
     public static int DefaultCount(LineStyle style) {
         switch (style) {
             case LineStyle.Engrailed:
@@ -78,23 +70,35 @@ public struct Line {
 
     #region Blazon
 
+    // The name of the style as a blazon says it, "embattled". An empty string for a straight line.
+    public string StyleName {
+        get {
+            if (IsStraight) {
+                return string.Empty;
+            }
+            // lambdas in a struct can't use its fields directly
+            LineStyle current = style;
+            return LineStyles.FirstOrDefault(x => x.Value == current).Key;
+        }
+    }
+
     // "embattled", or "embattled of five" with a number of peaks. An empty string for a straight line.
     public string ToBlazonDescription() {
         if (IsStraight) {
             return string.Empty;
         }
         // lambdas in a struct can't use its fields directly
-        LineStyle current = style;
         int peaks = count;
-        string ret = LineStyles.FirstOrDefault(x => x.Value == current).Key;
+        string ret = StyleName;
         if (peaks > 0) {
             ret += " of " + Numbers.FirstOrDefault(x => x.Value == peaks).Key;
         }
         return ret;
     }
 
-    // Reads a line starting at words[index]: a style name, optionally followed by "of" and a number. `consumed` is how many words it used.
-    public static bool TryParse(string[] words, int index, out Line line, out int consumed) {
+    // Reads a line starting at words[index]: a style name, optionally followed by "of" and a number of peaks. `consumed` is how many
+    // words it used. Where "of" and a number belong to something else (the number of bars in "barry wavy of six") pass allowCount false.
+    public static bool TryParse(string[] words, int index, out Line line, out int consumed, bool allowCount = true) {
         line = default;
         consumed = 0;
         LineStyle style;
@@ -105,7 +109,7 @@ public struct Line {
         consumed = 1;
         int count = 0;
         int number;
-        if (index + 2 < words.Length && words[index + 1] == "of" && Numbers.TryGetValue(words[index + 2], out number)) {
+        if (allowCount && index + 2 < words.Length && words[index + 1] == "of" && Numbers.TryGetValue(words[index + 2], out number)) {
             count = number;
             consumed = 3;
         }
@@ -169,6 +173,14 @@ public struct Line {
 
     public WaveLine ToWaveLine(Vector2 start, Vector2 end, float amplitude, bool centred = true) {
         return WaveLine.Between(start, end, PeakCount, Profile(), amplitude, centred);
+    }
+
+    // The line from `start` to `end` with an exact number of peaks and the usual amplitude for the style, for one part of a
+    // longer line (an arm of a cross) so its peaks are the same size as the whole line's.
+    public WaveLine ToWaveLineWithPeaks(Vector2 start, Vector2 end, int peaks, bool centred = true) {
+        peaks = Mathf.Max(1, peaks);
+        float wavelength = (end - start).magnitude / peaks;
+        return WaveLine.Between(start, end, peaks, Profile(), AmplitudeFactor(style) * wavelength, centred);
     }
 
     #endregion
@@ -314,8 +326,12 @@ public struct WaveLine {
     readonly Vector2 origin, direction, normal;
     readonly LineProfile profile;
     readonly float amplitude, wavelength, phase;
+    readonly float taper;   // distance along the line over which the amplitude grows from nothing, 0 for none
 
-    public WaveLine(Vector2 origin, float angle, LineProfile profile, float amplitude, float wavelength, float phase = 0f) {
+    public WaveLine(Vector2 origin, float angle, LineProfile profile, float amplitude, float wavelength, float phase = 0f)
+        : this(origin, angle, profile, amplitude, wavelength, phase, 0f) { }
+
+    WaveLine(Vector2 origin, float angle, LineProfile profile, float amplitude, float wavelength, float phase, float taper) {
         float radians = angle * Mathf.Deg2Rad;
         this.origin = origin;
         direction = new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
@@ -324,6 +340,7 @@ public struct WaveLine {
         this.amplitude = amplitude;
         this.wavelength = wavelength;
         this.phase = phase;
+        this.taper = taper;
     }
 
     // A line from `start` to `end` with `count` peaks (one per wavelength: crests, merlons, points, lobes or bulbs).
@@ -346,16 +363,28 @@ public struct WaveLine {
             size = -size;
             side = side == LineSide.Left ? LineSide.Right : LineSide.Left;
         }
-        if (size < 0.0001f) {
-            size = 1f;
+        if (taper > 0f) {
+            size *= Mathf.Clamp01(along / taper);
         }
-        bool below = profile.IsBelow(along / wavelength + phase, across / size);
+        // no amplitude (a straight line, or the very start of a tapered one) is a flat line
+        bool below = size < 0.0001f ? across <= 0f : profile.IsBelow(along / wavelength + phase, across / size);
         return side == LineSide.Right ? below : !below;
+    }
+
+    // The same line bent the other way: filling the left of a mirrored line is the mirror image of filling the right of the original.
+    public WaveLine Mirrored() {
+        return new WaveLine(origin, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg, profile, -amplitude, wavelength, phase, taper);
+    }
+
+    // The same line with its amplitude growing from nothing over the first `length` pixels, so it starts straight. Used where
+    // several lines meet at a point so their waves don't swing into each other's side.
+    public WaveLine Tapered(float length) {
+        return new WaveLine(origin, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg, profile, amplitude, wavelength, phase, length);
     }
 
     // The same line moved `distance` pixels to the left of the line (negative for right). Two shifted copies make the
     // edges of a band: fill one side of the first, then clear one side of the second.
     public WaveLine Shifted(float distance) {
-        return new WaveLine(origin + normal * distance, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg, profile, amplitude, wavelength, phase);
+        return new WaveLine(origin + normal * distance, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg, profile, amplitude, wavelength, phase, taper);
     }
 }

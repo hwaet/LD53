@@ -42,7 +42,8 @@ public class Field {
     public Color[] tinctures;
     public bool sinister;
     public int count;
-    // How the division is drawn, a straight line unless the blazon names one. Only used by divided fields.
+    // How the division is drawn, a straight line unless the blazon names one. Divided fields use it for their division, and the
+    // varied fields paly, barry, bendy and chevronny for the lines between their bars.
     public Line line;
 
     public Field(Color tincture) {
@@ -51,12 +52,13 @@ public class Field {
         count = 0;
     }
 
-    public Field(Variation variation, Color[] tinctures, bool sinister, int count) {
+    public Field(Variation variation, Color[] tinctures, bool sinister, int count, Line line = default) {
         type = FieldTypes.Varied;
         this.variation = variation;
         this.tinctures = tinctures;
         this.sinister = sinister;
         this.count = count;
+        this.line = line;
     }
 
     public Field(Division divsion, Color[] tinctures, bool sinister, Line line = default) {

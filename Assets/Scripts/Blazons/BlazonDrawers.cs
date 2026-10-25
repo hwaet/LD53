@@ -10,104 +10,448 @@ public static class BlazonDrawers  {
 
     #region Main Drawing Functions
 
-    public static Texture2D ApplyDivision(Texture2D field, Division div, Color[] tinctures, bool sinister = false) {
-        switch (div) {
-            case Division.Fess:
-                field = Fill(field, tinctures[0]);
-                field = DrawRect(field, new RectInt(0, 0, field.width, field.height / 2), tinctures[1]);
-                return field;
-            case Division.Pale:
-                field = Fill(field, tinctures[0]);
-                field = DrawRect(field, new RectInt(field.width / 2, 0, field.width / 2, field.height), tinctures[1]);
-                return field;
-            case Division.Bend:
-                if (!sinister) {
-                    field = Fill(field, tinctures[0]);
-                    field = DrawLineSegment(field, new Vector2Int(0, field.height - 1), new Vector2Int(field.width - 1, 0), tinctures[1]);
-                    field = FloodFill(field, new Vector2Int(0, 0), tinctures[1], FloodFillMode.AllSeedColor);
-                }
-                else {
-                    field = Fill(field, tinctures[0]);
-                    field = DrawLineSegment(field, new Vector2Int(field.width - 1, field.height - 1), new Vector2Int(0, 0), tinctures[1]);
-                    field = FloodFill(field, new Vector2Int(field.width - 1, 0), tinctures[1], FloodFillMode.AllSeedColor);
-                }
-                return field;
-            case Division.Chevron:
-                field = Fill(field, tinctures[0]);
-                field = DrawLineSegment(field, new Vector2Int(0, 0), new Vector2Int(field.width / 2, field.height / 3), tinctures[1]);
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height / 3), new Vector2Int(field.width, 0), tinctures[1]);
-                field = FloodFill(field, new Vector2Int(1, 0), tinctures[1], FloodFillMode.UntilTargetColor);
-                return field;
-            case Division.Cross:
-                field = Fill(field, tinctures[0]);
-                field = DrawRect(field, new RectInt(field.width / 2, field.height / 2, field.width / 2, field.height / 2), tinctures[1]);
-                field = DrawRect(field, new RectInt(0, 0, field.width / 2, field.height / 2), tinctures[1]);
-                return field;
-            case Division.Saltire:
-                field = Fill(field, tinctures[0]);
-                field = DrawLineSegment(field, new Vector2Int(0, 0), new Vector2Int(field.width - 1, field.height - 1), tinctures[1]);
-                field = DrawLineSegment(field, new Vector2Int(field.width - 1, 0), new Vector2Int(0, field.height - 1), tinctures[1]);
-                field = FloodFill(field, new Vector2Int(0, field.height / 2), tinctures[1], FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(field.width - 1, field.height / 2), tinctures[1], FloodFillMode.UntilTargetColor);
-                return field;
-            case Division.Pall:
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 2 / 3), new Vector2Int(0, field.height - 1), tinctures[0]);
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 2 / 3), new Vector2Int(field.width - 1, field.height - 1), tinctures[0]);
-                field = FloodFill(field, new Vector2Int(field.width / 2, field.height - 1), tinctures[0], FloodFillMode.UntilTargetColor);
-                field = FloodFill(field, new Vector2Int(0, 0), tinctures[1], FloodFillMode.AllSeedColor);
-                field = DrawLineSegment(field, new Vector2Int(field.width / 2, field.height * 2 / 3), new Vector2Int(field.width / 2, 0), tinctures[2]);
-                field = FloodFill(field, new Vector2Int(field.width - 1, 0), tinctures[2], FloodFillMode.AllSeedColor);
-
-
-                //field = FloodFill(field, new Vector2Int(field.width - 1, 0), tinctures[2], FloodFillMode.AllSeedColor);
-                return field;
-            default:
-                break;
+    public static Texture2D ApplyDivision(Texture2D field, Division div, Color[] tinctures, bool sinister = false, Line line = default, Shield shield = null) {
+        Func<int, int, int> region = DivisionRegions(div, sinister, line, shield ?? Shield.Default, field.width);
+        // a pall has three parts, the other divisions use the first two
+        Color third = tinctures.Length > 2 ? tinctures[2] : tinctures[tinctures.Length - 1];
+        for (int x = 0; x < field.width; x++) {
+            for (int y = 0; y < field.height; y++) {
+                int part = region(x, y);
+                field.SetPixel(x, y, part == 0 ? tinctures[0] : part == 1 ? tinctures[1] : third);
+            }
         }
         return field;
-
     }
 
-    public static Texture2D ApplyVariation(Texture2D field, Variation variation, Color[] tinctures, int patternCount = 4, bool sinister = false) {
-        int patternStep = field.width / patternCount;
+    // Where the apex of a chevron division is, as a fraction of the shield's height.
+    private const float ChevronApexHeight = 1f / 3f;
+
+    // Which part of a division every pixel of a `size` texture belongs to: 0 for the first part named, 1 for the second and 2 for
+    // the third (only a pall has one). The lines are placed with the shield's points, so they follow its shape, and are drawn in
+    // the given line style.
+    //
+    // A line is described from its interior, the first part, and the drawers fill the right of a line's direction, so each line
+    // below heads the way that leaves the first part on its right. Divisions with two lines (cross, saltire) are the exclusive
+    // or of the two sides, which makes the quarters alternate.
+    public static Func<int, int, int> DivisionRegions(Division div, bool sinister, Line line, Shield shield, int size) {
+        Vector2 fessPoint = shield.PointPosition(Point.FessPoint, size);
+        Vector2 dexter = shield.PointPosition(Point.Dexter, size);
+        Vector2 sinisterSide = shield.PointPosition(Point.Sinister, size);
+        Vector2 chief = shield.PointPosition(Point.Chief, size);
+        Vector2 basePoint = shield.PointPosition(Point.Base, size);
+        Vector2 dexterChief = shield.PointPosition(Point.DexterChief, size);
+        Vector2 sinisterChief = shield.PointPosition(Point.SinisterChief, size);
+        Vector2 dexterBase = shield.PointPosition(Point.DexterBase, size);
+        Vector2 sinisterBase = shield.PointPosition(Point.SinisterBase, size);
+
+        switch (div) {
+            case Division.Fess: {
+                // across the shield towards dexter, chief on the right
+                WaveLine edge = line.ToWaveLine(sinisterSide, dexter);
+                return (x, y) => edge.IsOnSide(x, y, LineSide.Right) ? 0 : 1;
+            }
+            case Division.Pale: {
+                // down the shield, dexter on the right
+                WaveLine edge = line.ToWaveLine(chief, basePoint);
+                return (x, y) => edge.IsOnSide(x, y, LineSide.Right) ? 0 : 1;
+            }
+            case Division.Bend: {
+                // from the sinister base up to the dexter chief, the chief side on the right. Sinister runs from the other chief.
+                WaveLine edge = sinister ? line.ToWaveLine(sinisterChief, dexterBase) : line.ToWaveLine(sinisterBase, dexterChief);
+                return (x, y) => edge.IsOnSide(x, y, LineSide.Right) ? 0 : 1;
+            }
+            case Division.Chevron: {
+                Vector2 apex = shield.UnitToPixel(new Vector2(0.5f, ChevronApexHeight), size);
+                float width = shield.Bounds(size).width;
+                // two arms down from the apex, the chief above them is the first part and the base below the second
+                return JunctionRegions(apex, line, new[] {
+                    new Arm(dexterBase, 1, 0, width),
+                    new Arm(sinisterBase, 0, 1, width) });
+            }
+            case Division.Cross: {
+                float width = shield.Bounds(size).width, height = shield.Bounds(size).height;
+                // four arms from the fess point, the quarters alternate: dexter chief and sinister base are the first part
+                return JunctionRegions(fessPoint, line, new[] {
+                    new Arm(sinisterSide, 1, 0, width),
+                    new Arm(chief, 0, 1, height),
+                    new Arm(dexter, 1, 0, width),
+                    new Arm(basePoint, 0, 1, height) });
+            }
+            case Division.Saltire: {
+                float diagonal = (sinisterBase - dexterChief).magnitude;
+                // four diagonal arms: the chief and base are the first part, dexter and sinister the second
+                return JunctionRegions(fessPoint, line, new[] {
+                    new Arm(sinisterChief, 0, 1, diagonal),
+                    new Arm(sinisterBase, 1, 0, diagonal),
+                    new Arm(dexterBase, 0, 1, diagonal),
+                    new Arm(dexterChief, 1, 0, diagonal) });
+            }
+            case Division.Pall: {
+                Vector2 junction = shield.UnitToPixel(new Vector2(0.5f, PallJunctionHeight), size);
+                float width = shield.Bounds(size).width, height = shield.Bounds(size).height;
+                // the chief is the wedge between the two arms, the stem splits the rest into dexter (second) and sinister (third)
+                return JunctionRegions(junction, line, new[] {
+                    new Arm(dexterChief, 1, 0, width),
+                    new Arm(sinisterChief, 0, 2, width),
+                    new Arm(basePoint, 2, 1, height) });
+            }
+            default:
+                return (x, y) => 0;
+        }
+    }
+
+    // One arm of a division that meets others at a junction: the point it runs out to and the parts (tincture indices) on its left
+    // and right looking away from the junction. `reference` is the length of the whole line the arm belongs to (a cross's fess line
+    // is the width of the shield), so a line style's peaks come out the same size on a short arm as on the whole line.
+    private struct Arm {
+        public readonly Vector2 end;
+        public readonly int left, right;
+        public readonly float reference;
+
+        public Arm(Vector2 end, int left, int right, float reference) {
+            this.end = end;
+            this.left = left;
+            this.right = right;
+            this.reference = reference;
+        }
+    }
+
+    // Divisions whose lines meet at a point (cross, saltire, pall, chevron) are drawn as arms running out from the junction rather
+    // than as whole lines crossing, so each arm starts its line style at the junction and the arms match. Every pixel is given to the
+    // arm it points most towards, and that arm's line then decides which of the two parts beside it the pixel is in. As with a
+    // single line the first part (the lower index) is the interior: an arm with the first part on its left is mirrored, so the line
+    // style bends the same way into the first part on every arm.
+    private static Func<int, int, int> JunctionRegions(Vector2 junction, Line line, Arm[] arms) {
+        int count = arms.Length;
+        Vector2[] directions = new Vector2[count];
+        WaveLine[] edges = new WaveLine[count];
+        bool[] interiorOnRight = new bool[count];
+        int[] interior = new int[count];
+        int[] other = new int[count];
+
+        for (int i = 0; i < count; i++) {
+            Vector2 along = arms[i].end - junction;
+            directions[i] = along.normalized;
+            int peaks = Mathf.RoundToInt(line.PeakCount * along.magnitude / arms[i].reference);
+            // the arm starts straight at the junction and grows into its pattern over the first wavelength
+            WaveLine edge = line.ToWaveLineWithPeaks(junction, arms[i].end, peaks, false).Tapered(along.magnitude / Mathf.Max(1, peaks));
+            interiorOnRight[i] = arms[i].right < arms[i].left;
+            interior[i] = Mathf.Min(arms[i].left, arms[i].right);
+            other[i] = Mathf.Max(arms[i].left, arms[i].right);
+            edges[i] = interiorOnRight[i] ? edge : edge.Mirrored();
+        }
+
+        return (x, y) => {
+            Vector2 d = new Vector2(x + 0.5f, y + 0.5f) - junction;
+            int nearest = 0;
+            float best = float.MinValue;
+            for (int i = 0; i < count; i++) {
+                float alignment = Vector2.Dot(d, directions[i]);
+                // compare directions, not distances: how much of the pixel's offset is along the arm, as a fraction of its length
+                float cosine = d.sqrMagnitude > 0f ? alignment / d.magnitude : 0f;
+                if (cosine > best) {
+                    best = cosine;
+                    nearest = i;
+                }
+            }
+            bool inInterior = edges[nearest].IsOnSide(x, y, interiorOnRight[nearest] ? LineSide.Right : LineSide.Left);
+            return inInterior ? interior[nearest] : other[nearest];
+        };
+    }
+
+    // How much of the shield, as a fraction of its height, the ordinaries take up. All sizes are fractions of the shield's bounds so
+    // they follow its shape, and the edges of an ordinary are drawn in the line style.
+    private const float ChiefEdgeHeight = 2f / 3f;      // the chief covers everything above this
+    private const float FessThickness = 1f / 4f;        // of the height
+    private const float PaleThickness = 1f / 4f;        // of the width
+    private const float CrossHeight = 0.7f;             // where the horizontal arm of a cross is, up the shield
+    private const float CrossThickness = 0.2f;          // of the height or the width
+    private const float DiagonalThickness = 0.18f;      // of the width, for a bend and a saltire
+    private const float PallThickness = 1f / 6f;        // of the width
+    private const float BordureThickness = 1f / 6f;     // of the width
+    private const float ChevronApexUnit = 0.65f;        // the middle of the chevron's point, up the shield
+    private const float ChevronEndsUnit = 0.15f;        // the middle of the chevron's ends
+    private const float ChevronThickness = 0.2f;        // of the height, measured straight up
+    private const float PileApexUnit = 0.1f;
+    private const float PileTopUnit = 0.25f;            // the base of the pile runs from this far across to its mirror image
+
+    // Which pixels of a `size` texture an ordinary covers, with the line style on its edges. Lines are described from the ordinary, so
+    // the ordinary is the interior and a line style bends the same way into it on every edge. Edges that are copies of each other
+    // (see Line.ParallelEdges) keep a band the same width. Embattled only varies the upper edge of a fess, chief, bend or chevron and
+    // the dexter edge of a pale; on the others every edge is embattled.
+    public static Func<int, int, bool> OrdinaryCoverage(OrdinaryShape shape, bool sinister, Line line, Shield shield, int size) {
+        RectInt bounds = shield.Bounds(size);
+        float width = bounds.width;
+        float height = bounds.height;
+        Vector2 fess = shield.PointPosition(Point.FessPoint, size);
+        Vector2 dexterChief = shield.PointPosition(Point.DexterChief, size);
+        Vector2 sinisterChief = shield.PointPosition(Point.SinisterChief, size);
+        Vector2 dexterBase = shield.PointPosition(Point.DexterBase, size);
+        Vector2 sinisterBase = shield.PointPosition(Point.SinisterBase, size);
+
+        switch (shape) {
+            case OrdinaryShape.Chief: {
+                // only the lower edge is varied; heading towards dexter leaves the chief above, on the right
+                float edgeY = bounds.y + height * ChiefEdgeHeight;
+                WaveLine edge = line.ToWaveLine(new Vector2(bounds.xMax, edgeY), new Vector2(bounds.xMin, edgeY));
+                return (x, y) => edge.IsOnSide(x, y, LineSide.Right);
+            }
+            case OrdinaryShape.Fess:
+                return Band(new Vector2(bounds.xMin, fess.y), new Vector2(bounds.xMax, fess.y), height * FessThickness, line, true, width);
+            case OrdinaryShape.Pale:
+                return Band(new Vector2(fess.x, bounds.yMin), new Vector2(fess.x, bounds.yMax), width * PaleThickness, line, true, height);
+            case OrdinaryShape.Cross: {
+                float armY = bounds.y + height * CrossHeight;
+                Func<int, int, bool> across = Band(new Vector2(bounds.xMin, armY), new Vector2(bounds.xMax, armY), height * CrossThickness, line, false, width);
+                Func<int, int, bool> down = Band(new Vector2(fess.x, bounds.yMin), new Vector2(fess.x, bounds.yMax), width * CrossThickness, line, false, height);
+                return (x, y) => across(x, y) || down(x, y);
+            }
+            case OrdinaryShape.Bend:
+                return sinister
+                    ? Band(dexterBase, sinisterChief, width * DiagonalThickness, line, true, width)
+                    : Band(dexterChief, sinisterBase, width * DiagonalThickness, line, true, width);
+            case OrdinaryShape.Saltire: {
+                Func<int, int, bool> bend = Band(dexterChief, sinisterBase, width * DiagonalThickness, line, false, width);
+                Func<int, int, bool> bendSinister = Band(dexterBase, sinisterChief, width * DiagonalThickness, line, false, width);
+                return (x, y) => bend(x, y) || bendSinister(x, y);
+            }
+            case OrdinaryShape.Chevron: {
+                Vector2 apex = shield.UnitToPixel(new Vector2(0.5f, ChevronApexUnit), size);
+                Vector2 dexterEnd = shield.UnitToPixel(new Vector2(0f, ChevronEndsUnit), size);
+                Vector2 sinisterEnd = shield.UnitToPixel(new Vector2(1f, ChevronEndsUnit), size);
+                // the thickness is measured straight up, the band is thinner across a sloping arm
+                float thickness = height * ChevronThickness * Mathf.Abs((apex - dexterEnd).normalized.x);
+                // one band along the path dexter end, apex, sinister end, with the chief on its left. The two legs carry one pattern
+                // through the point: each starts a cycle at the apex, so the pattern is continuous there.
+                Func<int, int, bool> dexterLeg = Band(dexterEnd, apex, thickness, line, true, width, false);
+                Func<int, int, bool> sinisterLeg = Band(apex, sinisterEnd, thickness, line, true, width, false);
+                return (x, y) => (x + 0.5f < apex.x ? dexterLeg : sinisterLeg)(x, y);
+            }
+            case OrdinaryShape.Pile: {
+                Vector2 apex = shield.UnitToPixel(new Vector2(0.5f, PileApexUnit), size);
+                Vector2 topDexter = shield.UnitToPixel(new Vector2(PileTopUnit, 1f), size);
+                Vector2 topSinister = shield.UnitToPixel(new Vector2(1f - PileTopUnit, 1f), size);
+                int peaks = Mathf.Max(1, Mathf.RoundToInt(line.PeakCount * (topDexter - apex).magnitude / height));
+                // both edges run out from the point, which is where the pile is narrowest, so they start straight and grow into the
+                // line style; the pile is on the right going up the dexter edge and on the left going up the sinister edge, so that
+                // edge is mirrored to bend the same way into the pile
+                // the pile is only a few wavelengths wide near its point, so the amplitude grows over two of them
+                float taper = 2f * (topDexter - apex).magnitude / peaks;
+                WaveLine dexterEdge = line.ToWaveLineWithPeaks(apex, topDexter, peaks, false).Tapered(taper);
+                WaveLine sinisterEdge = line.ToWaveLineWithPeaks(apex, topSinister, peaks, false).Tapered(taper).Mirrored();
+                return (x, y) => dexterEdge.IsOnSide(x, y, LineSide.Right) && sinisterEdge.IsOnSide(x, y, LineSide.Left);
+            }
+            case OrdinaryShape.Bordure:
+                return BordureCoverage(line, shield, size);
+            case OrdinaryShape.Pall: {
+                Vector2 junction = shield.UnitToPixel(new Vector2(0.5f, PallJunctionHeight), size);
+                Func<int, int, bool> dexterArm = HalfBand(junction, dexterChief, width * PallThickness, line, width);
+                Func<int, int, bool> sinisterArm = HalfBand(junction, sinisterChief, width * PallThickness, line, width);
+                Func<int, int, bool> stem = HalfBand(junction, shield.PointPosition(Point.Base, size), width * PallThickness, line, height);
+                return (x, y) => dexterArm(x, y) || sinisterArm(x, y) || stem(x, y);
+            }
+            default:
+                Debug.LogFormat("Haven't implemented {0} yet", shape);
+                return (x, y) => false;
+        }
+    }
+
+    // A band of `thickness` pixels centred on the line from `start` towards `end` (it carries on past both), heading so that the left
+    // of the line is the edge the line style is applied to when only one edge is. `reference` is the length of the whole line the
+    // band belongs to, so the number of peaks scales with how much of it this band is. With `centred` the pattern is symmetrical about
+    // the middle of the band, otherwise it starts a cycle at `start`.
+    private static Func<int, int, bool> Band(Vector2 start, Vector2 end, float thickness, Line line, bool primaryEdgeOnly, float reference, bool centred = true) {
+        Vector2 along = end - start;
+        Vector2 direction = along.normalized;
+        Vector2 offset = new Vector2(-direction.y, direction.x) * (thickness / 2f);
+        int peaks = Mathf.Max(1, Mathf.RoundToInt(line.PeakCount * along.magnitude / reference));
+
+        // the left edge, with the band on its right
+        WaveLine first = line.ToWaveLineWithPeaks(start + offset, end + offset, peaks, centred);
+
+        Line secondLine = primaryEdgeOnly && line.style == LineStyle.Embattled ? default(Line) : line;
+        if (!secondLine.IsStraight && secondLine.ParallelEdges) {
+            // the same line moved across, with the band on its left
+            WaveLine second = first.Shifted(-thickness);
+            return (x, y) => first.IsOnSide(x, y, LineSide.Right) && second.IsOnSide(x, y, LineSide.Left);
+        }
+        else {
+            // the right edge heading back the other way, so the band is on its right too and the line bends into it the same way
+            WaveLine second = secondLine.ToWaveLineWithPeaks(end - offset, start - offset, peaks, centred);
+            return (x, y) => first.IsOnSide(x, y, LineSide.Right) && second.IsOnSide(x, y, LineSide.Right);
+        }
+    }
+
+    // A band that starts at `start` and runs towards `end` and beyond, with every edge in the line style. The pattern starts a cycle
+    // at the start so arms that meet there match.
+    private static Func<int, int, bool> HalfBand(Vector2 start, Vector2 end, float thickness, Line line, float reference) {
+        Vector2 direction = (end - start).normalized;
+        Func<int, int, bool> band = Band(start, end, thickness, line, false, reference, false);
+        return (x, y) => Vector2.Dot(new Vector2(x + 0.5f, y + 0.5f) - start, direction) >= 0f && band(x, y);
+    }
+
+    // The border: everything outside the shield's outline moved in by a sixth of its width. A line style is applied to that inner
+    // edge. The outline is found by marching out from the middle of the shield, which suits the shields that are round about their
+    // middle, and its length measured so the peaks are evenly spaced around it however the shield is shaped.
+    private static Func<int, int, bool> BordureCoverage(Line line, Shield shield, int size) {
+        RectInt bounds = shield.Bounds(size);
+        float width = bounds.width * BordureThickness;
+        if (line.IsStraight) {
+            return (x, y) => shield.DistanceToEdge(x, y, size) <= width;
+        }
+
+        Vector2 centre = shield.Pole(size);
+        const int steps = 720;
+        float[] distanceAlong = new float[steps + 1];   // length of the inner edge from the chief to each angle, going round counter clockwise
+        Vector2 previous = Vector2.zero;
+        for (int i = 0; i <= steps; i++) {
+            float angle = Mathf.PI / 2f + 2f * Mathf.PI * i / steps;
+            Vector2 direction = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            float radius = 0f;
+            while (radius < size && shield.DistanceToEdge(Mathf.FloorToInt(centre.x + direction.x * radius), Mathf.FloorToInt(centre.y + direction.y * radius), size) > width) {
+                radius += 0.5f;
+            }
+            Vector2 point = centre + direction * radius;
+            distanceAlong[i] = i == 0 ? 0f : distanceAlong[i - 1] + (point - previous).magnitude;
+            previous = point;
+        }
+
+        float perimeter = distanceAlong[steps];
+        // peaks as big as the ones on a line across the shield, unless the blazon gives a number
+        int peaks = line.count > 0 ? line.count : Mathf.Max(1, Mathf.RoundToInt(line.PeakCount * perimeter / bounds.width));
+        float wavelength = perimeter / peaks;
+        float amplitude = line.AmplitudeFor(wavelength);
+        LineProfile profile = line.Profile();
+
+        return (x, y) => {
+            Vector2 d = new Vector2(x + 0.5f, y + 0.5f) - centre;
+            float turns = Mathf.Repeat((Mathf.Atan2(d.y, d.x) - Mathf.PI / 2f) / (2f * Mathf.PI), 1f);
+            float position = turns * steps;
+            int index = Mathf.Min(Mathf.FloorToInt(position), steps - 1);
+            float along = Mathf.Lerp(distanceAlong[index], distanceAlong[index + 1], position - index);
+            // positive towards the middle of the shield, the border is the side towards the outline
+            float across = shield.DistanceToEdge(x, y, size) - width;
+            // a peak at the chief, so the pattern is symmetrical
+            return profile.IsBelow(along / wavelength + profile.crestPhase, across / amplitude);
+        };
+    }
+
+    // Which tincture each pixel of a `size` texture gets in paly, barry, bendy (dexter or sinister) and chevronny, or null for the other
+    // variations. The shield's bounds are divided into `count` bars (bendy and chevronny measure along the width) separated by copies of
+    // one line moved across the shield a bar at a time, so the bars are parallel and the line style repeats. Each line is described from
+    // the bar before it (above, dexter, or the chief side) so the style bends the same way on every one. The tinctures go round in order.
+    public static Func<int, int, int> VariationRegions(Variation variation, bool sinister, int count, Line line, Shield shield, int size, int tinctureCount) {
+        RectInt bounds = shield.Bounds(size);
+        float width = bounds.width;
+        float height = bounds.height;
+        int n = Mathf.Max(1, tinctureCount);
+        count = Mathf.Max(1, count);
+        float diagonal = Mathf.Sqrt(width * width + height * height);
+        float root2 = Mathf.Sqrt(2f);
 
         switch (variation) {
-            case Variation.Paly:
-                // band index comes from position alone, so counts that don't divide the width stay clean
-                for (int x = 0; x < field.width; x++) {
-                    int band = x * patternCount / field.width;
-                    for (int y = 0; y < field.height; y++) {
-                        field.SetPixel(x, y, tinctures[(band + 1) % tinctures.Length]);
-                    }
+            case Variation.Paly: {
+                float step = width / count;
+                // down the shield, so the bar to dexter is on the right; the first line is on the dexter edge
+                WaveLine first = StripeLine(line, new Vector2(bounds.xMin, bounds.yMax), new Vector2(bounds.xMin, bounds.yMin), step, width);
+                WaveLine[] lines = ShiftedCopies(first, step, count - 1);
+                return (x, y) => (BarsBeyond(lines, x, y) + 1) % n;
+            }
+            case Variation.Barry: {
+                float step = height / count;
+                // across the shield towards dexter, so the bar above is on the right; the first line is on the chief edge
+                WaveLine first = StripeLine(line, new Vector2(bounds.xMax, bounds.yMax), new Vector2(bounds.xMin, bounds.yMax), step, width);
+                WaveLine[] lines = ShiftedCopies(first, step, count - 1);
+                return (x, y) => BarsBeyond(lines, x, y) % n;
+            }
+            case Variation.Bendy: {
+                // bars are a width / count apart along x + y (or x - y for sinister), so there are twice as many as `count` in the square
+                float step = width / count / root2;
+                Vector2 origin = sinister ? new Vector2(bounds.xMin, bounds.yMax) : new Vector2(bounds.xMin, bounds.yMin);
+                // dexter: down and to sinister, the bar towards the dexter base on the right; sinister: down and to dexter, the bar towards the dexter chief on the right
+                Vector2 direction = sinister ? new Vector2(-1f, -1f) / root2 : new Vector2(1f, -1f) / root2;
+                WaveLine first = StripeLine(line, origin - direction * diagonal * 0.6f, origin + direction * diagonal * 0.6f, step, width);
+                WaveLine[] lines = ShiftedCopies(first, step, 2 * count - 1);
+                return (x, y) => (BarsBeyond(lines, x, y) + 1) % n;
+            }
+            case Variation.Chevronny: {
+                // chevrons with legs at 45 degrees, `width / count` apart going down the shield. The first would have its legs through the
+                // top corners of the shield, with its point above the shield on the middle line.
+                float rise = width / count;
+                float across = rise / root2;
+                Vector2 apex = new Vector2(bounds.x + width / 2f, bounds.yMax + width / 2f);
+                int chevrons = Mathf.CeilToInt((height + width) / rise);
+                // both legs are measured out from the point, so they are mirror images of each other. The dexter leg heads down and to
+                // dexter with the chief above it on the right. The sinister leg heads down and to sinister with the chief on the left, so it is mirrored.
+                WaveLine dexterFirst = StripeLine(line, apex, apex + new Vector2(-1f, -1f) / root2 * diagonal, across, width);
+                WaveLine sinisterFirst = StripeLine(line, apex, apex + new Vector2(1f, -1f) / root2 * diagonal, across, width);
+                WaveLine[] dexterLegs = ShiftedCopies(dexterFirst, across, chevrons);
+                WaveLine[] sinisterLegs = new WaveLine[chevrons];
+                for (int i = 0; i < chevrons; i++) {
+                    // the sinister leg's left is up, away from the chevron below it, so moving down is a negative shift
+                    sinisterLegs[i] = sinisterFirst.Shifted(-(i + 1) * across).Mirrored();
                 }
-                return field;
-            case Variation.Barry:
-                for (int y = field.height - 1; y >= 0; y--) {
-                    int band = (field.height - 1 - y) * patternCount / field.height;
-                    for (int x = 0; x < field.width; x++) {
-                        field.SetPixel(x, y, tinctures[band % tinctures.Length]);
-                    }
-                }
-                return field;
-            case Variation.Bendy:
-                if (sinister) {
-                    for (int y = field.height - 1; y >= 0; y--) {
-                        for (int x = 0; x < field.width; x++) {
-                            // band index depends only on the diagonal this pixel sits on
-                            int band = (x + (field.width - 1 - y)) * patternCount / field.width;
-                            field.SetPixel(x, y, tinctures[(band + 1) % tinctures.Length]);
+                float middle = apex.x;
+                return (x, y) => {
+                    int below = 0;
+                    for (int i = 0; i < chevrons; i++) {
+                        bool above = x + 0.5f < middle ? dexterLegs[i].IsOnSide(x, y, LineSide.Right) : sinisterLegs[i].IsOnSide(x, y, LineSide.Left);
+                        if (!above) {
+                            below++;
                         }
                     }
+                    return (below + 1) % n;
+                };
+            }
+            default:
+                return null;
+        }
+    }
+
+    // A line for the boundary between bars `spacing` apart, with peaks as big as on a line across the shield (`width` long with the
+    // line's own number of peaks) and an amplitude that stops the neighbouring boundaries from crossing.
+    private static WaveLine StripeLine(Line line, Vector2 start, Vector2 end, float spacing, float width) {
+        float length = (end - start).magnitude;
+        int peaks = Mathf.Max(1, Mathf.RoundToInt(line.PeakCount * length / width));
+        float amplitude = line.IsStraight ? 0f : Mathf.Min(line.AmplitudeFor(length / peaks), 0.35f * spacing);
+        return WaveLine.Between(start, end, peaks, line.Profile(), amplitude);
+    }
+
+    // `number` copies of a line, each moved `spacing` pixels further to its left than the last, starting one spacing from the original.
+    private static WaveLine[] ShiftedCopies(WaveLine first, float spacing, int number) {
+        WaveLine[] copies = new WaveLine[Mathf.Max(0, number)];
+        for (int i = 0; i < copies.Length; i++) {
+            copies[i] = first.Shifted((i + 1) * spacing);
+        }
+        return copies;
+    }
+
+    // How many of the lines the pixel is past, that is not on the right of: the number of the bar it is in.
+    private static int BarsBeyond(WaveLine[] lines, int x, int y) {
+        int beyond = 0;
+        for (int i = 0; i < lines.Length; i++) {
+            if (!lines[i].IsOnSide(x, y, LineSide.Right)) {
+                beyond++;
+            }
+        }
+        return beyond;
+    }
+
+    public static Texture2D ApplyVariation(Texture2D field, Variation variation, Color[] tinctures, int patternCount = 4, bool sinister = false, Line line = default, Shield shield = null) {
+        int patternStep = field.width / patternCount;
+
+        // paly, barry, bendy and chevronny are bars separated by lines, which can take a line style
+        Func<int, int, int> bars = VariationRegions(variation, sinister, patternCount, line, shield ?? Shield.Default, field.width, tinctures.Length);
+        if (bars != null) {
+            for (int x = 0; x < field.width; x++) {
+                for (int y = 0; y < field.height; y++) {
+                    field.SetPixel(x, y, tinctures[bars(x, y)]);
                 }
-                else {
-                    for (int y = field.height - 1; y >= 0; y--) {
-                        for (int x = 0; x < field.width; x++) {
-                            int band = (x + y + 1) * patternCount / field.width;
-                            field.SetPixel(x, y, tinctures[(band + 1) % tinctures.Length]);
-                        }
-                    }
-                }
-                return field;
+            }
+            return field;
+        }
+
+        switch (variation) {
             case Variation.Chequy:
                 for (int x = 0; x < field.width; x++) {
                     for (int y = 0; y < field.height; y++) {
@@ -117,18 +461,6 @@ public static class BlazonDrawers  {
                         else {
                             field.SetPixel(x, y, tinctures[0]);
                         }
-                    }
-                }
-                return field;
-            case Variation.Chevronny:
-                for (int y = field.height - 1; y >= 0; y--) {
-                    for (int x = 0; x < field.width / 2; x++) {
-                        int band = (x + (field.width - 1 - y)) * patternCount / field.width;
-                        field.SetPixel(x, y, tinctures[(band + 1) % tinctures.Length]);
-                    }
-                    for (int x = field.width / 2; x < field.width; x++) {
-                        int band = (x + y + 1) * patternCount / field.width;
-                        field.SetPixel(x, y, tinctures[band % tinctures.Length]);
                     }
                 }
                 return field;
@@ -180,74 +512,16 @@ public static class BlazonDrawers  {
         }
     }
 
-    public static Texture2D ApplyOrdinary(Texture2D field, OrdinaryShape shape, Color tincture, bool sinister = false, Shield shield = null) {
-        Color [,] stamp = field.GetStampTemplate();
-        switch (shape) {
-            case OrdinaryShape.Chief:
-                field = DrawRect(field, new RectInt(0, field.height * 2 / 3, field.width, field.height), tincture);
-                return field;
-            case OrdinaryShape.Fess:
-                field = DrawRect(field, new RectInt(0, field.height / 2 - field.height / 8, field.width, field.height / 4), tincture);
-                return field;
-            case OrdinaryShape.Pale:
-                field = DrawRect(field, new RectInt(field.width / 2 - field.width / 8, 0, field.width / 4, field.height), tincture);
-                return field;
-            case OrdinaryShape.Cross:
-                field = DrawRect(field, new RectInt(0, field.height / 2 + field.height / 10, field.width, field.height / 5), tincture);
-                field = DrawRect(field, new RectInt(field.width / 2 - field.width / 10, 0, field.width / 5, field.height), tincture);
-                return field;
-            case OrdinaryShape.Bend:
-                if (sinister) {
-                    field = DrawLine(field, new Vector2Int(0, 0), new Vector2Int(1, 1), tincture, field.width / 8);
+    public static Texture2D ApplyOrdinary(Texture2D field, OrdinaryShape shape, Color tincture, bool sinister = false, Shield shield = null, Line line = default) {
+        Func<int, int, bool> covers = OrdinaryCoverage(shape, sinister, line, shield ?? Shield.Default, field.width);
+        for (int x = 0; x < field.width; x++) {
+            for (int y = 0; y < field.height; y++) {
+                if (covers(x, y)) {
+                    field.SetPixel(x, y, tincture);
                 }
-                else {
-                    field = DrawLine(field, new Vector2Int(0, field.height), new Vector2Int(1, -1), tincture, field.width / 8);
-                }
-                return field;
-            case OrdinaryShape.Saltire:
-
-                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 8, 0), new Vector2Int(field.width - 1, field.height * 7 / 8), tincture);
-                stamp = DrawLineSegment(stamp, new Vector2Int(0, field.height / 8), new Vector2Int(field.width * 7 / 8, field.height - 1), tincture);
-
-                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 8, field.height - 1), new Vector2Int(field.width - 1, field.height / 8), tincture);
-                stamp = DrawLineSegment(stamp, new Vector2Int(0, field.width * 7 / 8), new Vector2Int(field.width * 7 / 8, 0), tincture);
-
-                stamp = FloodFill(stamp, new Vector2Int(field.width / 2, field.height / 2), tincture, FloodFillMode.UntilTargetColor);
-                stamp = FloodFill(stamp, new Vector2Int(0, 0), tincture, FloodFillMode.UntilTargetColor);
-                stamp = FloodFill(stamp, new Vector2Int(0, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
-                stamp = FloodFill(stamp, new Vector2Int(field.width - 1, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
-                stamp = FloodFill(stamp, new Vector2Int(field.width - 1, 0), tincture, FloodFillMode.UntilTargetColor);
-                return StampToTexture(field, stamp);
-
-            case OrdinaryShape.Pile:
-                stamp = field.GetStampTemplate();
-                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 4, field.height - 1), new Vector2Int(field.width / 2, field.height / 10), tincture);
-                stamp = DrawLineSegment(stamp, new Vector2Int(field.width * 3 / 4, field.height - 1), new Vector2Int(field.width / 2, field.height / 10), tincture);
-                stamp = FloodFill(stamp, new Vector2Int(field.width / 2, field.height - 1), tincture, FloodFillMode.UntilTargetColor);
-                return StampToTexture(field, stamp);
-
-            case OrdinaryShape.Chevron:
-                stamp = field.GetStampTemplate();
-                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(0, field.height / 4), tincture);
-                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4), new Vector2Int(field.width - 1, field.height / 4), tincture);
-                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(0, field.height / 4 - field.height / 5), tincture);
-                stamp = DrawLineSegment(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4 - field.height / 5), new Vector2Int(field.width - 1, field.height / 4 - field.height / 5), tincture);
-                stamp = FloodFill(stamp, new Vector2Int(field.width / 2, field.height * 3 / 4 - 1), tincture, FloodFillMode.UntilTargetColor);
-
-                field = StampToTexture(field, stamp);
-                return field;
-
-            case OrdinaryShape.Bordure:
-                return DrawBordure(field, tincture, shield);
-
-            case OrdinaryShape.Pall:
-                return DrawPall(field, tincture, shield);
-
-            default:
-                Debug.LogFormat("Haven't implemented {0} yet", shape);
-                return field;
-
+            }
         }
+        return field;
     }
 
     public static Texture2D ApplyCharge(Texture2D field, Charge charge, Shield shield = null) {
@@ -807,55 +1081,6 @@ public static class BlazonDrawers  {
 
     // Height of the pall's junction as a fraction of the shield's height, same as the pall division uses.
     private const float PallJunctionHeight = 2f / 3f;
-
-    // Band about 1/6 of the shield's width running around the inside of the shield outline, whatever shape it is.
-    // Paints everything outside the inset shield, including past the outline, so it reaches the texture edge
-    // like the other ordinaries do. Add `&& shield.Contains(x, y, field.width)` to keep it strictly inside the shield.
-    public static Texture2D DrawBordure(Texture2D field, Color color, Shield shield = null) {
-        shield = shield ?? Shield.Default;
-        float width = shield.Bounds(field.width).width / 6f;
-        for (int x = 0; x < field.width; x++) {
-            for (int y = 0; y < field.height; y++) {
-                if (shield.DistanceToEdge(x, y, field.width) <= width) {
-                    field.SetPixel(x, y, color);
-                }
-            }
-        }
-        return field;
-    }
-
-    // Y shape: arms from each upper corner of the shield meet at a junction, then one arm runs down to the bottom middle.
-    // Each arm is about 1/6 of the shield's width thick.
-    public static Texture2D DrawPall(Texture2D field, Color color, Shield shield = null) {
-        shield = shield ?? Shield.Default;
-        RectInt bounds = shield.Bounds(field.width);
-        float thickness = bounds.width / 6f;
-        Vector2 junction = new Vector2(bounds.x + bounds.width / 2f, bounds.y + bounds.height * PallJunctionHeight);
-
-        // arms run past the edge of the shield so no end caps show
-        Vector2 dexterEnd = junction + (new Vector2(bounds.xMin, bounds.yMax - 1) - junction) * 1.25f;
-        Vector2 sinisterEnd = junction + (new Vector2(bounds.xMax - 1, bounds.yMax - 1) - junction) * 1.25f;
-        Vector2 baseEnd = new Vector2(junction.x, bounds.yMin - thickness);
-
-        for (int x = 0; x < field.width; x++) {
-            for (int y = 0; y < field.height; y++) {
-                Vector2 p = new Vector2(x, y);
-                float d = Mathf.Min(DistanceToSegment(p, junction, dexterEnd),
-                           Mathf.Min(DistanceToSegment(p, junction, sinisterEnd),
-                                     DistanceToSegment(p, junction, baseEnd)));
-                if (d <= thickness / 2f) {
-                    field.SetPixel(x, y, color);
-                }
-            }
-        }
-        return field;
-    }
-
-    private static float DistanceToSegment(Vector2 p, Vector2 a, Vector2 b) {
-        Vector2 ab = b - a;
-        float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
-        return Vector2.Distance(p, a + ab * t);
-    }
 
     public static Texture2D DrawLineSegment(Texture2D field, Vector2Int start, Vector2Int end, Color color) {
         int dx = Mathf.Abs(end.x - start.x);
