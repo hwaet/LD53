@@ -79,6 +79,8 @@ public class Blazon {
             }
         }
 
+        // fills of a fur's marker color become its pattern
+        tex = Furs.Resolve(tex, shield);
         tex.Apply();
         return tex;
     }
@@ -311,6 +313,12 @@ public class Blazon {
         ret = ret.Replace("bleu-celeste", "Bleu-Celeste");
         ret = ret.Replace("brunatre", "Brunatre");
         ret = ret.Replace("orange", "Orange");
+
+        ret = ret.Replace("erminois", "Erminois");
+        ret = ret.Replace("counter-vair", "Counter-Vair");
+        ret = ret.Replace("vair", "Vair");
+        ret = ret.Replace("pean", "Pean");
+        ret = ret.Replace("ermine", "Ermine");
         
         return ret;
     }

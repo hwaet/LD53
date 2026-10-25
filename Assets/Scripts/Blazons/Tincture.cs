@@ -30,6 +30,16 @@ public class Tincture {
     public static readonly Color Brunatre = new Color(.5f, .2f, 0);
     public static readonly Color Orange = new Color(1, .5f, 0);
 
+    // Furs. A fur is a pattern, so these are marker colors: drawing fills with one like any tincture and Furs.Resolve turns the pixels into
+    // the pattern. They are exact 8 bit values so they survive being stored in a texture, and are well away from the other tinctures so a
+    // painted color doesn't snap to one by accident. The swatch suggests the fur.
+    public static readonly Color Ermine = new Color32(226, 226, 238, 255);
+    public static readonly Color Ermines = new Color32(58, 58, 84, 255);
+    public static readonly Color Erminois = new Color32(222, 188, 70, 255);
+    public static readonly Color Pean = new Color32(84, 70, 26, 255);
+    public static readonly Color Vair = new Color32(122, 150, 224, 255);
+    public static readonly Color CounterVair = new Color32(66, 98, 178, 255);
+
     public static readonly Dictionary<string, Color> Tinctures = new Dictionary<string, Color>() {
         { "argent",  Argent },
         { "or",  Or },
@@ -46,7 +56,13 @@ public class Tincture {
         {"rose", Rose },
         {"bleuceleste", BleuCeleste },
         {"brunatre", Brunatre },
-        {"orange", Orange }
+        {"orange", Orange },
+        {"ermine", Ermine },
+        {"ermines", Ermines },
+        {"erminois", Erminois },
+        {"pean", Pean },
+        {"vair", Vair },
+        {"counter-vair", CounterVair }
     };
 
     public static readonly Dictionary<string, Color> Metals = new Dictionary<string, Color>() {

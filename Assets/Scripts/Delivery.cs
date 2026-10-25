@@ -70,6 +70,8 @@ public class Delivery : MonoBehaviour
 			}
 		}
 
+		// a painted fur's color becomes its pattern, the same way it does in the target
+		Furs.Resolve(currentBlazon);
 
 		currentBlazon.Apply();
 
