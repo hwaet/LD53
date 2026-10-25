@@ -70,6 +70,10 @@ public class Blazon {
                 break;
         }
 
+        // a fur's marker color becomes its pattern as soon as the field or element that used it is drawn, so the pattern is scaled to that
+        // shape, and an element drawn over it isn't taken for part of it
+        tex = Furs.Resolve(tex, shield);
+
         foreach(Element elem in elements) {
             if (elem is Ordinary ordinary) {
                 tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister, shield, ordinary.line);
@@ -77,10 +81,9 @@ public class Blazon {
             else if(elem is Charge charge) {
                 tex = ApplyCharge(tex, charge, shield);
             }
+            tex = Furs.Resolve(tex, shield);
         }
 
-        // fills of a fur's marker color become its pattern
-        tex = Furs.Resolve(tex, shield);
         tex.Apply();
         return tex;
     }
