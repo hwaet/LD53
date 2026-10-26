@@ -12,22 +12,31 @@ public static class BlazonDrawers  {
 
     public static Texture2D ApplyDivision(Texture2D field, Division div, Color[] tinctures, bool sinister = false, Line line = default, Shield shield = null) {
         Func<int, int, int> region = DivisionRegions(div, sinister, line, shield ?? Shield.Default, field.width);
-        // a pall has three parts, the other divisions use the first two
-        Color third = tinctures.Length > 2 ? tinctures[2] : tinctures[tinctures.Length - 1];
         for (int x = 0; x < field.width; x++) {
             for (int y = 0; y < field.height; y++) {
-                int part = region(x, y);
-                field.SetPixel(x, y, part == 0 ? tinctures[0] : part == 1 ? tinctures[1] : third);
+                field.SetPixel(x, y, PartTincture(div, tinctures, region(x, y)));
             }
         }
         return field;
+    }
+
+    // The tincture of a part of a division. A pall has three parts and a cross or saltire four, each taking the tinctures in the order they
+    // are named. With fewer tinctures than parts, a pall repeats its last, and the quarters of a cross or saltire alternate (one, two, one,
+    // two) given two tinctures and go one, two, three, two given three. Every other division has two parts.
+    public static Color PartTincture(Division div, Color[] tinctures, int part) {
+        int count = tinctures.Length;
+        if (div == Division.Cross || div == Division.Saltire) {
+            int[] byCount = count >= 4 ? new[] { 0, 1, 2, 3 } : count == 3 ? new[] { 0, 1, 2, 1 } : new[] { 0, 1, 0, 1 };
+            return tinctures[Mathf.Min(byCount[part], count - 1)];
+        }
+        return tinctures[Mathf.Min(part, count - 1)];
     }
 
     // Where the apex of a chevron division is, as a fraction of the shield's height.
     private const float ChevronApexHeight = 1f / 3f;
 
     // Which part of a division every pixel of a `size` texture belongs to: 0 for the first part named, 1 for the second and 2 for
-    // the third (only a pall has one). The lines are placed with the shield's points, so they follow its shape, and are drawn in
+    // the third (a pall has three parts, and a cross or saltire four, numbered clockwise from the dexter chief or the chief). The lines are placed with the shield's points, so they follow its shape, and are drawn in
     // the given line style.
     //
     // A line is described from its interior, the first part, and the drawers fill the right of a line's direction, so each line
@@ -70,21 +79,23 @@ public static class BlazonDrawers  {
             }
             case Division.Cross: {
                 float width = shield.Bounds(size).width, height = shield.Bounds(size).height;
-                // four arms from the fess point, the quarters alternate: dexter chief and sinister base are the first part
+                // four arms from the fess point, and the quarters numbered clockwise from the dexter chief: 0 dexter chief, 1 sinister chief,
+                // 2 sinister base, 3 dexter base. Lines bend into the even quarters, as they did when there were only two parts.
                 return JunctionRegions(fessPoint, line, new[] {
-                    new Arm(sinisterSide, 1, 0, width),
+                    new Arm(sinisterSide, 1, 2, width),
                     new Arm(chief, 0, 1, height),
-                    new Arm(dexter, 1, 0, width),
-                    new Arm(basePoint, 0, 1, height) });
+                    new Arm(dexter, 3, 0, width),
+                    new Arm(basePoint, 2, 3, height) }, true);
             }
             case Division.Saltire: {
                 float diagonal = (sinisterBase - dexterChief).magnitude;
-                // four diagonal arms: the chief and base are the first part, dexter and sinister the second
+                // four diagonal arms, and the parts numbered clockwise from the chief: 0 chief, 1 sinister, 2 base, 3 dexter. Lines bend into
+                // the even parts, as they did when there were only two.
                 return JunctionRegions(fessPoint, line, new[] {
                     new Arm(sinisterChief, 0, 1, diagonal),
-                    new Arm(sinisterBase, 1, 0, diagonal),
-                    new Arm(dexterBase, 0, 1, diagonal),
-                    new Arm(dexterChief, 1, 0, diagonal) });
+                    new Arm(sinisterBase, 1, 2, diagonal),
+                    new Arm(dexterBase, 2, 3, diagonal),
+                    new Arm(dexterChief, 3, 0, diagonal) }, true);
             }
             case Division.Pall: {
                 Vector2 junction = shield.UnitToPixel(new Vector2(0.5f, PallJunctionHeight), size);
@@ -121,7 +132,9 @@ public static class BlazonDrawers  {
     // arm it points most towards, and that arm's line then decides which of the two parts beside it the pixel is in. As with a
     // single line the first part (the lower index) is the interior: an arm with the first part on its left is mirrored, so the line
     // style bends the same way into the first part on every arm.
-    private static Func<int, int, int> JunctionRegions(Vector2 junction, Line line, Arm[] arms) {
+    // `alternate` is for the four quarters of a cross or saltire, where the interior of an arm is whichever of its two parts is even
+    // rather than the lower.
+    private static Func<int, int, int> JunctionRegions(Vector2 junction, Line line, Arm[] arms, bool alternate = false) {
         int count = arms.Length;
         Vector2[] directions = new Vector2[count];
         WaveLine[] edges = new WaveLine[count];
@@ -135,9 +148,10 @@ public static class BlazonDrawers  {
             int peaks = Mathf.RoundToInt(line.PeakCount * along.magnitude / arms[i].reference);
             // the arm starts straight at the junction and grows into its pattern over the first wavelength
             WaveLine edge = line.ToWaveLineWithPeaks(junction, arms[i].end, peaks, false).Tapered(along.magnitude / Mathf.Max(1, peaks));
-            interiorOnRight[i] = arms[i].right < arms[i].left;
-            interior[i] = Mathf.Min(arms[i].left, arms[i].right);
-            other[i] = Mathf.Max(arms[i].left, arms[i].right);
+            bool leftIsInterior = alternate ? arms[i].left % 2 == 0 : arms[i].left < arms[i].right;
+            interiorOnRight[i] = !leftIsInterior;
+            interior[i] = leftIsInterior ? arms[i].left : arms[i].right;
+            other[i] = leftIsInterior ? arms[i].right : arms[i].left;
             edges[i] = interiorOnRight[i] ? edge : edge.Mirrored();
         }
 
@@ -662,6 +676,30 @@ public static class BlazonDrawers  {
     #endregion
 
     #region Primitive Drawing Functions
+
+    // Recolors a counterchanged element's layer: every pixel it covers takes the tincture after the one the field has there in `cycle`, going
+    // back to the first after the last. `fieldTinctures` is the field's own map, from before anything was drawn on it, so what an ordinary
+    // or earlier charge covers doesn't matter. Where the field has none of the cycle's tinctures there is nothing to change to, and the
+    // element isn't drawn.
+    public static void Counterchange(Color32[] layer, byte[] fieldTinctures, byte[] cycle) {
+        Color32[] next = new Color32[cycle.Length];
+        for (int k = 0; k < cycle.Length; k++) {
+            next[k] = Tincture.FromId(cycle[(k + 1) % cycle.Length]);
+        }
+        for (int i = 0; i < layer.Length; i++) {
+            byte alpha = layer[i].a;
+            if (alpha == 0) {
+                continue;
+            }
+            int under = System.Array.IndexOf(cycle, fieldTinctures[i]);
+            if (under >= 0 && fieldTinctures[i] != Tincture.Empty) {
+                layer[i] = new Color32(next[under].r, next[under].g, next[under].b, alpha);
+            }
+            else {
+                layer[i] = new Color32(0, 0, 0, 0);
+            }
+        }
+    }
 
     public static Texture2D Fill(Texture2D field, Color color) {
         for (int x = 0; x < field.width; x++) {

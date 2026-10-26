@@ -62,13 +62,13 @@ public class Charge : Element {
         string ret = string.Empty;
         switch (type) {
             case ChargeType.Single:
-                ret = "a " + shape.ToString() + " " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+                ret = "a " + shape.ToString() + " " + TinctureWord;
                 break;
             case ChargeType.Multiple:
-                ret = Numbers.FirstOrDefault(x => x.Value == count).Key + " " + shape.ToString() + "s " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+                ret = Numbers.FirstOrDefault(x => x.Value == count).Key + " " + shape.ToString() + "s " + TinctureWord;
                 break;
             case ChargeType.Positioned:
-                ret = "in " + Points.FirstOrDefault(x => x.Value == point).Key + " a " + shape.ToString() + " " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+                ret = "in " + Points.FirstOrDefault(x => x.Value == point).Key + " a " + shape.ToString() + " " + TinctureWord;
                 break;
             case ChargeType.LaidOut:
                 ret = "A more complex description of the ordinary this is on";

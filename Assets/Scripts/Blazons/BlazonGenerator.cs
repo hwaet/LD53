@@ -10,6 +10,8 @@ public class BlazonGenerator : MonoBehaviour
     // Name of a PNG in Resources/Shields. Empty uses the default shield.
     public string shieldName = "";
     public Texture2D blazonTexture;
+    // Which tincture is at every pixel of the blazon and how much each counts, what a painting is scored against.
+    public BlazonMap blazonMap;
 
     public SkinnedMeshRenderer bannerRenderer;
 
@@ -32,7 +34,9 @@ public class BlazonGenerator : MonoBehaviour
         Blazon newBlazon;
 		newBlazon = Blazon.Parse(blazonDescription);
 		Shield shield = string.IsNullOrEmpty(shieldName) ? Shield.Default : Shield.Get(shieldName);
-		blazonTexture = newBlazon.GenerateTexture(256, shield);
+		BlazonRender render = newBlazon.Render(256, shield);
+		blazonTexture = render.texture;
+		blazonMap = render.map;
 
 		bannerRenderer.sharedMaterial.SetTexture("_Blazon_Texture", blazonTexture);
 		if (!string.IsNullOrEmpty(shieldName) && shield.source != null) {

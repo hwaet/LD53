@@ -7,6 +7,8 @@ using UnityEngine.Rendering;
 public class Delivery : MonoBehaviour
 {
     public Texture2D currentBlazon;
+    // Which tincture is at every pixel of the painting, what is scored against the blazon's map.
+    public BlazonMap currentMap;
     Paintbrush paintbrush;
 
 	public LayerMask layerMask;
@@ -57,20 +59,11 @@ public class Delivery : MonoBehaviour
 	[ContextMenu("copy blazon")]
     public void CopyBlazon()
 	{
-		///GPU only, we can't compare pixels with this on the cpu
-		////Graphics.CopyTexture(paintbrush.renderTex, currentBlazon);
+		// the brush keeps the tincture at every pixel as it paints, so there is nothing to read back from the canvas and snap to a tincture
+		currentMap = paintbrush.map;
 
-		///Very Slow!
-		RenderTexture.active = paintbrush.renderTex;
-		Rect regionToReadFrom = new Rect(0, 0, paintbrush.renderTex.width, paintbrush.renderTex.height);
-		currentBlazon.ReadPixels(regionToReadFrom, 0, 0);
-		for(int x = 0; x < currentBlazon.width; x++) {
-			for(int y= 0; y < currentBlazon.height; y++) {
-				currentBlazon.SetPixel(x, y, Tincture.ClosestTincture(currentBlazon.GetPixel(x, y)));
-			}
-		}
-
-		// a painted fur's color becomes its pattern, the same way it does in the target
+		// the picture shown is those tinctures, with a fur's color becoming its pattern as it does in the blazon
+		currentBlazon.SetPixels32(currentMap.ToPixels());
 		Furs.Resolve(currentBlazon);
 
 		currentBlazon.Apply();
@@ -94,7 +87,10 @@ public class Delivery : MonoBehaviour
     {
 		
 
-		float score = currentBlazon.MatchPercentage(targetBlazonGenerator.blazonTexture);
+		if (currentMap == null) {
+			CopyBlazon();
+		}
+		float score = BlazonMap.Score(targetBlazonGenerator.blazonMap, currentMap);
 
 		Debug.Log(score);
 

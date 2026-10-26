@@ -6,6 +6,8 @@ using UnityEngine.UI;
 public class PaletteButton : MonoBehaviour
 {
     public Paintbrush paintbrush;
+    // The tincture this button is for, set by the palette. If it isn't, it is the tincture whose color the button is.
+    public byte tinctureId;
     Image image;
 
     // Start is called before the first frame update
@@ -17,7 +19,7 @@ public class PaletteButton : MonoBehaviour
 
     public void setCurrentColorToPaintbrush()
     {
-        paintbrush.setColor(image.color);
+        paintbrush.SetTincture(tinctureId != Tincture.Empty ? tinctureId : Tincture.IdOf(image.color));
 
 
 	}

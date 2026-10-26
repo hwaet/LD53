@@ -16,6 +16,14 @@ public class Paintbrush : MonoBehaviour
 
 	public Color brushColor;
 
+	// What is painted as a logical picture: the tincture at every pixel, which is what a painting is scored by. The brush sets it as it paints,
+	// knowing which tincture it is painting with, so the pixels the canvas shows (soft edges and all) never have to be matched back to a tincture.
+	[Header("Scoring")]
+	public BlazonMap map;
+	public byte brushTincture;
+	Color32[] brushPixels;
+	int brushWidth, brushHeight;
+
 	Texture2D whiteMap;
 	public RenderTexture renderTex;
 	public RawImage rawImage;
@@ -27,6 +35,10 @@ public class Paintbrush : MonoBehaviour
 
 	void Start()
 	{
+		brushPixels = TextureReadback.Read(brushTexture);
+		brushWidth = brushTexture.width;
+		brushHeight = brushTexture.height;
+		brushTincture = Tincture.IdOf(brushColor);
 		ResetRenderTexture();// clear white texture to draw on
 	}
 
@@ -39,7 +51,7 @@ public class Paintbrush : MonoBehaviour
 
 	void Update()
 	{
-		if (Input.GetMouseButton(0))
+		if (canvasGroup.interactable && Input.GetMouseButton(0))
 		{
 			OnDraw();
 		}
@@ -80,7 +92,7 @@ public class Paintbrush : MonoBehaviour
 		GL.PopMatrix();
 		RenderTexture.active = null;// turn off rendertexture
 
-
+		StampMap(newDrawing);
 	}
 
 	[ContextMenu("Get White Render Texture")]
@@ -98,11 +110,53 @@ public class Paintbrush : MonoBehaviour
 		//whiteMap.SetPixel(0, 0, Color.white);
 		//whiteMap.Apply();
 		renderTex.Release();
+
+		// the blank canvas is white, which is argent
+		map = new BlazonMap(resolution);
+		map.Fill(Tincture.IdOf(Color.white), 1f);
+	}
+
+	// Records on the map what was just drawn, in the tincture being painted with.
+	void StampMap(Rect stamp)
+	{
+		map.Stamp(stamp, brushPixels, brushWidth, brushHeight, brushTincture);
+	}
+
+	// Checks the map against what is on the canvas, to see that the two line up (and aren't upside down): they should agree except along the
+	// soft edges of strokes.
+	[ContextMenu("Compare map to canvas")]
+	void CompareMapToCanvas()
+	{
+		RenderTexture previous = RenderTexture.active;
+		RenderTexture.active = renderTex;
+		Texture2D canvas = new Texture2D(renderTex.width, renderTex.height, TextureFormat.RGBA32, false);
+		canvas.ReadPixels(new Rect(0, 0, renderTex.width, renderTex.height), 0, 0);
+		RenderTexture.active = previous;
+		Color32[] pixels = canvas.GetPixels32();
+		DestroyImmediate(canvas);
+
+		int size = map.size;
+		int same = 0, flipped = 0;
+		for (int i = 0; i < pixels.Length; i++)
+		{
+			byte shown = Tincture.IdOf(pixels[i]);
+			if (shown == map.tinctures[i]) same++;
+			if (shown == map.tinctures[i % size + (size - 1 - i / size) * size]) flipped++;
+		}
+		Debug.LogFormat("The map matches the canvas on {0:P1} of pixels, and {1:P1} if it were upside down.", (float)same / pixels.Length, (float)flipped / pixels.Length);
 	}
 
 	public void setColor (Color newColor)
 	{
-		brushColor = newColor; 
+		brushColor = newColor;
+		brushTincture = Tincture.IdOf(newColor);
+	}
+
+	// Paints with a tincture, which is how the palette sets the brush: it knows which tincture each of its buttons is.
+	public void SetTincture(byte tinctureId)
+	{
+		brushTincture = tinctureId;
+		brushColor = Tincture.FromId(tinctureId);
 	}
 
 	public void SetBrushSize(float size)

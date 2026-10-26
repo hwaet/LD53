@@ -93,6 +93,79 @@ public class Tincture {
         {"orange", Orange }
     };
 
+    // Ids for scoring: every tincture has a number, in the order of Tinctures starting at 1, and 0 is for nothing. A fur is one id.
+    public const byte Empty = 0;
+    static readonly Color32[] ordered = BuildOrdered();
+    static readonly bool[] isFur = BuildIsFur();
+    static readonly Dictionary<int, byte> idCache = new Dictionary<int, byte>();
+    // how far a color can be from a fur's marker, squared, and still be it: a painted color may be a step or two off after going through a texture
+    const int FurTolerance = 12;
+
+    static Color32[] BuildOrdered() {
+        List<Color32> colors = new List<Color32>();
+        foreach (Color color in Tinctures.Values) {
+            colors.Add(color);
+        }
+        return colors.ToArray();
+    }
+
+    static bool[] BuildIsFur() {
+        Color[] furs = { Ermine, Ermines, Erminois, Pean, Vair, CounterVair };
+        bool[] flags = new bool[ordered.Length];
+        int i = 0;
+        foreach (Color color in Tinctures.Values) {
+            foreach (Color fur in furs) {
+                if (color == fur) {
+                    flags[i] = true;
+                }
+            }
+            i++;
+        }
+        return flags;
+    }
+
+    // The id of the tincture nearest a color, so a pixel doesn't have to be exact. A fur only if the color is close to its marker, so the
+    // in between colors at the edge of a stroke go to the ordinary tinctures and not to a fur that happens to be near them. Transparent is Empty.
+    public static byte IdOf(Color32 color) {
+        if (color.a == 0) {
+            return Empty;
+        }
+        int key = color.r << 16 | color.g << 8 | color.b;
+        byte id;
+        if (idCache.TryGetValue(key, out id)) {
+            return id;
+        }
+        int nearest = int.MaxValue;
+        for (int i = 0; i < ordered.Length; i++) {
+            int dr = color.r - ordered[i].r;
+            int dg = color.g - ordered[i].g;
+            int db = color.b - ordered[i].b;
+            int distance = dr * dr + dg * dg + db * db;
+            if (isFur[i]) {
+                if (distance <= FurTolerance) {
+                    id = (byte)(i + 1);
+                    nearest = -1;
+                    break;
+                }
+            }
+            else if (distance < nearest) {
+                nearest = distance;
+                id = (byte)(i + 1);
+            }
+        }
+        idCache[key] = id;
+        return id;
+    }
+
+    public static byte IdOf(Color color) {
+        return IdOf((Color32)color);
+    }
+
+    // The color of a tincture id, transparent for Empty.
+    public static Color32 FromId(byte id) {
+        return id == Empty || id > ordered.Length ? new Color32(0, 0, 0, 0) : ordered[id - 1];
+    }
+
     public static Color ClosestTincture(Color color) {
         float minDistance = float.MaxValue;
         Color closestColor = color;

@@ -43,7 +43,7 @@ public class Ordinary: Element {
         if (!line.IsStraight) {
             ret += " " + line.ToBlazonDescription();
         }
-        ret += " " + Tincture.Tinctures.FirstOrDefault(x => x.Value == tincture).Key;
+        ret += " " + TinctureWord;
         return ret;
     }
 }

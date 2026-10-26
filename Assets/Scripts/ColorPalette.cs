@@ -23,6 +23,10 @@ public class ColorPalette : MonoBehaviour
             //Debug.Log(item.Key);
             GameObject newGO = GameObject.Instantiate(button, colorPaletteRect);
 			newGO.GetComponent<Image>().color = item.Value;
+			PaletteButton paletteButton = newGO.GetComponent<PaletteButton>();
+			if (paletteButton != null) {
+				paletteButton.tinctureId = Tincture.IdOf(item.Value);
+			}
 
         }
     }

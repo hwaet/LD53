@@ -51,8 +51,21 @@ public class Blazon {
     }
        
     public Texture2D GenerateTexture(int size, Shield shield = null) {
+        return Render(size, shield).texture;
+    }
+
+    // Draws the blazon and, as it goes, makes the map used to score it: which tincture is at every pixel, and how much the pixel counts.
+    // The field is drawn first, then each ordinary and charge on a clear layer of its own so exactly what it covers is known, and the layer
+    // is put on top of the picture. A pixel counts the field's weight plus the layer weight for each element drawn over it, and not at all
+    // off the shield.
+    public BlazonRender Render(int size, Shield shield = null, ScoringWeights weights = null) {
+        shield = shield ?? Shield.Default;
+        weights = weights ?? new ScoringWeights();
+
         Texture2D tex = new Texture2D(size, size, TextureFormat.ARGB32, false);
         tex.wrapMode = TextureWrapMode.Clamp;
+        BlazonMap map = new BlazonMap(size);
+
 		switch (field.type) {
             case FieldTypes.Simple:
                 tex = Fill(tex, field.tinctures[0]);
@@ -70,22 +83,61 @@ public class Blazon {
                 break;
         }
 
+        // the field fills the whole picture. The map is made from the flat colors, a fur still being its marker color
+        map.AddLayer(tex.GetPixels32(), weights.field);
+
+        // what a counterchanged element is recolored by: which tincture the field has at every pixel, and the tinctures it rotates through
+        byte[] fieldTinctures = (byte[])map.tinctures.Clone();
+        byte[] cycle = new byte[0];
+        Color[] cycleColors;
+        if (field.TryGetCounterchangeCycle(out cycleColors)) {
+            cycle = System.Array.ConvertAll(cycleColors, c => Tincture.IdOf(c));
+        }
+
         // a fur's marker color becomes its pattern as soon as the field or element that used it is drawn, so the pattern is scaled to that
         // shape, and an element drawn over it isn't taken for part of it
         tex = Furs.Resolve(tex, shield);
 
-        foreach(Element elem in elements) {
-            if (elem is Ordinary ordinary) {
-                tex = ApplyOrdinary(tex, ordinary.shape, ordinary.tincture, ordinary.sinister, shield, ordinary.line);
+        if (elements.Count > 0) {
+            Texture2D layer = new Texture2D(size, size, TextureFormat.ARGB32, false);
+            layer.wrapMode = TextureWrapMode.Clamp;
+            Color32[] clear = new Color32[size * size];
+
+            foreach(Element elem in elements) {
+                layer.SetPixels32(clear);
+                if (elem is Ordinary ordinary) {
+                    ApplyOrdinary(layer, ordinary.shape, ordinary.tincture, ordinary.sinister, shield, ordinary.line);
+                }
+                else if(elem is Charge charge) {
+                    ApplyCharge(layer, charge, shield);
+                }
+
+                Color32[] drawn = layer.GetPixels32();
+                if (elem.counterchanged) {
+                    Counterchange(drawn, fieldTinctures, cycle);
+                }
+                Color32[] picture = tex.GetPixels32();
+                for (int i = 0; i < drawn.Length; i++) {
+                    if (drawn[i].a != 0) {
+                        picture[i] = drawn[i];
+                    }
+                }
+                tex.SetPixels32(picture);
+                map.AddLayer(drawn, weights.layer);
+                tex = Furs.Resolve(tex, shield);
             }
-            else if(elem is Charge charge) {
-                tex = ApplyCharge(tex, charge, shield);
+
+            if (Application.isPlaying) {
+                Object.Destroy(layer);
             }
-            tex = Furs.Resolve(tex, shield);
+            else {
+                Object.DestroyImmediate(layer);
+            }
         }
 
+        map.ClearWeightsOutside(shield);
         tex.Apply();
-        return tex;
+        return new BlazonRender(tex, map);
     }
 
     public void AddElement(string elementDescription) {
@@ -94,7 +146,8 @@ public class Blazon {
         if (elementProperties[0] == "a" || elementProperties[0] == "an") {
             if (ChargeShapes.ContainsKey(elementProperties[1])) {
                 //we have a single charge 
-                Charge charge = new Charge(ChargeShapes[elementProperties[1]], Tincture.Tinctures[elementProperties[2]]);
+                Charge charge = new Charge(ChargeShapes[elementProperties[1]], Color.clear);
+                charge.SetTincture(elementProperties[2]);
                 elements.Add(charge);
             }
             else if (OrdinaryShapes.ContainsKey(elementProperties[1])) {
@@ -111,7 +164,7 @@ public class Blazon {
                     ord.line = parsedLine;
                     next += used;
                 }
-                ord.tincture = Tincture.Tinctures[elementProperties[next]];
+                ord.SetTincture(elementProperties[next]);
                 elements.Add(ord);
             }
             else {
@@ -127,7 +180,8 @@ public class Blazon {
 
                 //elementProperties[3] should be "a" or "an"
                 ChargeShape shape = ChargeShapes[elementProperties[4]];
-                Charge charge = new Charge(shape, Tincture.Tinctures[elementProperties[5]], point);
+                Charge charge = new Charge(shape, Color.clear, point);
+                charge.SetTincture(elementProperties[5]);
                 elements.Add(charge);
             }
             else {
@@ -135,12 +189,14 @@ public class Blazon {
 
                 //elementProperties[2] should be "a" or "an"
                 ChargeShape shape = ChargeShapes[elementProperties[3]];
-                Charge charge = new Charge(shape, Tincture.Tinctures[elementProperties[4]], point);
+                Charge charge = new Charge(shape, Color.clear, point);
+                charge.SetTincture(elementProperties[4]);
                 elements.Add(charge);
             }
         }
         else if (Numbers.ContainsKey(elementProperties[0])) {
-            Charge charge = new Charge(ChargeShapes[elementProperties[1]], Tincture.Tinctures[elementProperties[2]], Numbers[elementProperties[0]]);
+            Charge charge = new Charge(ChargeShapes[elementProperties[1]], Color.clear, Numbers[elementProperties[0]]);
+            charge.SetTincture(elementProperties[2]);
             elements.Add(charge);
         }
         else {
@@ -327,8 +383,7 @@ public class Blazon {
     }
 
     // Warnings about blazons that parse fine but contain elements that can't be seen.
-    // These are warnings, not errors: an element sharing a tincture with the field is legitimate when it is
-    // countercharged, which isn't modelled yet. Once it is, exempt those elements from the field check below.
+    // These are warnings, not errors: an element sharing a tincture with the field is legitimate when it is counterchanged.
     public List<string> Validate() {
         List<string> warnings = new List<string>();
 
@@ -339,6 +394,15 @@ public class Blazon {
         for (int i = 0; i < elements.Count; i++) {
             Element elem = elements[i];
             string what = elem.ToBlazonDescription();
+
+            if (elem.counterchanged) {
+                Color[] cycleColors;
+                if (!field.TryGetCounterchangeCycle(out cycleColors)) {
+                    warnings.Add("\"" + what + "\" can't be counterchanged: that needs a field of two or three tinctures to change between, so it will not be seen.");
+                }
+                continue;
+            }
+
             string name = TinctureName(elem.tincture);
 
             if (System.Array.Exists(field.tinctures, t => t == elem.tincture)) {
@@ -346,12 +410,12 @@ public class Blazon {
                     warnings.Add("\"" + what + "\" is the same colour as the field (" + name + ") so it will be invisible.");
                 }
                 else {
-                    warnings.Add("\"" + what + "\" shares " + name + " with the field, so it will be partly or fully hidden unless it is countercharged.");
+                    warnings.Add("\"" + what + "\" shares " + name + " with the field, so it will be partly or fully hidden unless it is counterchanged.");
                 }
             }
 
             for (int j = 0; j < i; j++) {
-                if (elements[j].tincture == elem.tincture) {
+                if (!elements[j].counterchanged && elements[j].tincture == elem.tincture) {
                     warnings.Add("\"" + what + "\" is the same colour (" + name + ") as the earlier \"" + elements[j].ToBlazonDescription() + "\" so they may blend together.");
                     break;
                 }
@@ -535,7 +599,23 @@ public class BlazonError : System.Exception {
 }
 
 public abstract class Element {
+    public const string CounterchangedWord = "counterchanged";
+
     public Color tincture;
+    // A counterchanged element takes, in each part of the field it lies across, the tincture of the other part. Its `tincture` is then
+    // only the color it is drawn in before it is recolored (white), so anything that looks at an element's tincture must check this first.
+    public bool counterchanged;
+
+    // Sets the tincture from the word that names it in a blazon, which may be "counterchanged".
+    public void SetTincture(string word) {
+        counterchanged = word == CounterchangedWord;
+        tincture = counterchanged ? Color.white : Tincture.Tinctures[word];
+    }
+
+    // What the blazon calls the element's tincture.
+    public string TinctureWord {
+        get { return counterchanged ? CounterchangedWord : System.Linq.Enumerable.FirstOrDefault(Tincture.Tinctures, x => x.Value == tincture).Key; }
+    }
 
     public abstract string ToBlazonDescription();
 }

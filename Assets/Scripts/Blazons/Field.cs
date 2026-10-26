@@ -46,6 +46,46 @@ public class Field {
     // varied fields paly, barry, bendy and chevronny for the lines between their bars.
     public Line line;
 
+    // How many of its tinctures the field uses: a pall has three parts, a cross or a saltire four, and every other field two.
+    public int TinctureCount {
+        get {
+            if (type == FieldTypes.Simple) {
+                return 1;
+            }
+            if (type == FieldTypes.Divided) {
+                if (divison == Division.Pall) {
+                    return 3;
+                }
+                if (divison == Division.Cross || divison == Division.Saltire) {
+                    return 4;
+                }
+            }
+            return 2;
+        }
+    }
+
+    // The tinctures a counterchanged element changes between, in the order the field names them: each part of the element takes the tincture
+    // after the one under it, and the last goes round to the first. With two that is a swap, and with more they rotate. A plain field has
+    // nothing to change to.
+    public bool TryGetCounterchangeCycle(out Color[] cycle) {
+        cycle = new Color[0];
+        if (type == FieldTypes.Simple) {
+            return false;
+        }
+        int used = Mathf.Min(TinctureCount, tinctures.Length);
+        List<Color> distinct = new List<Color>();
+        for (int i = 0; i < used; i++) {
+            if (!distinct.Contains(tinctures[i])) {
+                distinct.Add(tinctures[i]);
+            }
+        }
+        if (distinct.Count < 2) {
+            return false;
+        }
+        cycle = distinct.ToArray();
+        return true;
+    }
+
     public Field(Color tincture) {
         type = FieldTypes.Simple;
         tinctures = new Color[] { tincture };
